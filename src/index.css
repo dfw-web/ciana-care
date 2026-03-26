@@ -1,0 +1,186 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 200 20% 98%;
+    --foreground: 210 40% 11%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 210 40% 11%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 210 40% 11%;
+
+    --primary: 190 70% 36%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 195 60% 50%;
+    --secondary-foreground: 0 0% 100%;
+
+    --muted: 200 25% 94%;
+    --muted-foreground: 210 12% 45%;
+
+    --accent: 190 50% 93%;
+    --accent-foreground: 190 70% 30%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 200 20% 90%;
+    --input: 200 20% 90%;
+    --ring: 190 70% 36%;
+
+    --radius: 0.75rem;
+
+    --sidebar-background: 0 0% 98%;
+    --sidebar-foreground: 240 5.3% 26.1%;
+    --sidebar-primary: 240 5.9% 10%;
+    --sidebar-primary-foreground: 0 0% 98%;
+    --sidebar-accent: 240 4.8% 95.9%;
+    --sidebar-accent-foreground: 240 5.9% 10%;
+    --sidebar-border: 220 13% 91%;
+    --sidebar-ring: 190 70% 36%;
+
+    /* Custom tokens */
+    --card-shadow: 0 1px 3px rgba(0,0,0,.04), 0 4px 12px rgba(0,0,0,.06);
+    --card-shadow-hover: 0 4px 16px rgba(0,0,0,.08), 0 8px 32px rgba(0,0,0,.06);
+    --whatsapp: 142 70% 49%;
+    --glass-bg: 0 0% 100% / 0.7;
+    --glass-border: 0 0% 100% / 0.3;
+  }
+
+  .dark {
+    --background: 210 40% 8%;
+    --foreground: 200 20% 96%;
+    --card: 210 35% 12%;
+    --card-foreground: 200 20% 96%;
+    --popover: 210 35% 12%;
+    --popover-foreground: 200 20% 96%;
+    --primary: 190 60% 45%;
+    --primary-foreground: 210 40% 8%;
+    --secondary: 195 50% 35%;
+    --secondary-foreground: 200 20% 96%;
+    --muted: 210 30% 16%;
+    --muted-foreground: 200 15% 60%;
+    --accent: 210 30% 16%;
+    --accent-foreground: 200 20% 96%;
+    --destructive: 0 63% 31%;
+    --destructive-foreground: 200 20% 96%;
+    --border: 210 30% 18%;
+    --input: 210 30% 18%;
+    --ring: 190 60% 45%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    letter-spacing: -0.03em;
+    text-wrap: balance;
+  }
+
+  p {
+    text-wrap: pretty;
+  }
+}
+
+@layer components {
+  .label-text {
+    @apply font-semibold uppercase tracking-widest text-xs text-primary;
+  }
+
+  .section-padding {
+    @apply py-20 md:py-28;
+  }
+
+  /* Glassmorphism card */
+  .glass-card {
+    @apply bg-card/70 backdrop-blur-xl border border-border/50 rounded-2xl;
+    box-shadow: var(--card-shadow);
+    transition: box-shadow 0.3s ease, transform 0.3s ease;
+  }
+
+  .glass-card:hover {
+    box-shadow: var(--card-shadow-hover);
+    transform: translateY(-2px);
+  }
+
+  /* Medical gradient backgrounds */
+  .gradient-medical {
+    background: linear-gradient(
+      160deg,
+      hsl(195 70% 96%) 0%,
+      hsl(200 30% 99%) 40%,
+      hsl(190 40% 96%) 100%
+    );
+  }
+
+  .gradient-hero {
+    background: linear-gradient(
+      135deg,
+      hsl(195 60% 95%) 0%,
+      hsl(200 20% 98%) 50%,
+      hsl(185 40% 95%) 100%
+    );
+  }
+
+  /* Blob shapes */
+  .blob {
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(80px);
+    opacity: 0.15;
+    pointer-events: none;
+  }
+
+  .blob-primary {
+    background: hsl(190 70% 50%);
+  }
+
+  .blob-secondary {
+    background: hsl(195 60% 60%);
+  }
+
+  /* Custom C spinner */
+  .c-spinner {
+    position: relative;
+    width: 56px;
+    height: 56px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .c-spinner::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    border: 3px solid hsl(var(--border));
+    border-top-color: hsl(var(--primary));
+    animation: c-spin 0.8s linear infinite;
+  }
+
+  .c-spinner-logo {
+    width: 32px;
+    height: 32px;
+    object-fit: contain;
+    z-index: 1;
+  }
+
+  @keyframes c-spin {
+    to { transform: rotate(360deg); }
+  }
+}
