@@ -7,10 +7,8 @@ import cianaLogo from "@/assets/ciana-logo.png";
 const HeroSection = () => {
   return (
     <section id="home" className="section-padding gradient-hero relative overflow-hidden">
-      {/* Decorative blobs */}
       <div className="blob blob-primary w-[500px] h-[500px] -top-64 -left-64" />
       <div className="blob blob-secondary w-[350px] h-[350px] top-20 right-0" />
-      {/* Subtle watermark logo */}
       <img src={cianaLogo} alt="" className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[400px] h-auto opacity-[0.06] pointer-events-none select-none" aria-hidden="true" />
 
       <div className="container relative z-10">
@@ -31,13 +29,13 @@ const HeroSection = () => {
             </p>
 
             <div className="flex flex-wrap gap-3 pt-2">
-              <a
-                href="#contact"
+              <Link
+                to="/appointment"
                 className="inline-flex items-center gap-2 bg-primary text-primary-foreground px-8 py-4 rounded-xl font-semibold text-sm hover:scale-[1.03] hover:shadow-lg transition-all duration-200 active:scale-[0.97]"
               >
                 <CalendarDays className="w-4 h-4" />
                 Book Appointment
-              </a>
+              </Link>
               <Link
                 to="/check-result"
                 className="inline-flex items-center gap-2 bg-card/80 backdrop-blur text-foreground border border-border/50 px-8 py-4 rounded-xl font-semibold text-sm hover:scale-[1.03] hover:shadow-md transition-all duration-200 active:scale-[0.97]"

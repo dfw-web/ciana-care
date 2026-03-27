@@ -1,21 +1,8 @@
 import { motion } from "framer-motion";
-import { Phone, MapPin, Clock, Send } from "lucide-react";
-import { useState, FormEvent } from "react";
-import { toast } from "sonner";
+import { Phone, MapPin, Clock, CalendarDays } from "lucide-react";
+import { Link } from "react-router-dom";
 
 const ContactSection = () => {
-  const [sending, setSending] = useState(false);
-
-  const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    setSending(true);
-    setTimeout(() => {
-      setSending(false);
-      toast.success("Your enquiry has been sent! We'll get back to you shortly.");
-      (e.target as HTMLFormElement).reset();
-    }, 1000);
-  };
-
   return (
     <section id="contact" className="section-padding gradient-medical relative overflow-hidden">
       <div className="blob blob-secondary w-[400px] h-[400px] top-0 right-0" />
@@ -85,54 +72,28 @@ const ContactSection = () => {
             viewport={{ once: true }}
             transition={{ duration: 0.5, delay: 0.1 }}
           >
-            <form onSubmit={handleSubmit} className="glass-card p-8 space-y-5">
-              <h3 className="text-lg font-bold text-foreground">Book an Appointment</h3>
-
-              {[
-                { id: "name", label: "Full Name", type: "text", placeholder: "Your full name", required: true, maxLength: 100 },
-                { id: "phone", label: "Phone Number", type: "tel", placeholder: "e.g. 0703 236 4300", required: true, maxLength: 20 },
-                { id: "email", label: "Email (Optional)", type: "email", placeholder: "your@email.com", required: false, maxLength: 255 },
-              ].map((field) => (
-                <div key={field.id} className="space-y-1.5">
-                  <label htmlFor={field.id} className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                    {field.label}
-                  </label>
-                  <input
-                    id={field.id}
-                    name={field.id}
-                    type={field.type}
-                    required={field.required}
-                    maxLength={field.maxLength}
-                    className="w-full px-4 py-3 rounded-xl border border-input bg-background/80 text-foreground text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-shadow"
-                    placeholder={field.placeholder}
-                  />
-                </div>
-              ))}
-
-              <div className="space-y-1.5">
-                <label htmlFor="message" className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                  Message / Service Needed
-                </label>
-                <textarea
-                  id="message"
-                  name="message"
-                  required
-                  maxLength={1000}
-                  rows={4}
-                  className="w-full px-4 py-3 rounded-xl border border-input bg-background/80 text-foreground text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring resize-none transition-shadow"
-                  placeholder="Tell us about the test or service you need…"
-                />
-              </div>
-
-              <button
-                type="submit"
-                disabled={sending}
-                className="w-full flex items-center justify-center gap-2 bg-primary text-primary-foreground px-8 py-4 rounded-xl font-semibold text-sm hover:scale-[1.02] hover:shadow-md transition-all disabled:opacity-50"
+            <div className="glass-card p-8 space-y-6 text-center">
+              <h3 className="text-lg font-bold text-foreground">Ready to Book?</h3>
+              <p className="text-muted-foreground text-sm leading-relaxed">
+                Use our appointment booking system to schedule your visit. Select your services, preferred date and time, and we'll confirm via WhatsApp.
+              </p>
+              <Link
+                to="/appointment"
+                className="inline-flex items-center gap-2 bg-primary text-primary-foreground px-8 py-4 rounded-xl font-semibold text-sm hover:scale-[1.03] hover:shadow-lg transition-all"
               >
-                <Send className="w-4 h-4" />
-                {sending ? "Sending…" : "Send Enquiry"}
-              </button>
-            </form>
+                <CalendarDays className="w-4 h-4" />
+                Book Appointment
+              </Link>
+              <div className="pt-4 border-t border-border/50">
+                <p className="text-xs text-muted-foreground mb-3">Or view our full service catalog</p>
+                <Link
+                  to="/services"
+                  className="inline-flex items-center gap-2 bg-card text-foreground border border-border px-6 py-3 rounded-xl font-semibold text-sm hover:shadow-md transition-all"
+                >
+                  View Our Services
+                </Link>
+              </div>
+            </div>
           </motion.div>
         </div>
       </div>

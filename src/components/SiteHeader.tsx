@@ -7,7 +7,7 @@ import cianaLogo from "@/assets/ciana-logo.png";
 const navLinks = [
   { label: "Home", href: "#home" },
   { label: "About", href: "#about" },
-  { label: "Tests", href: "#services" },
+  { label: "Our Services", href: "#services" },
   { label: "Reviews", href: "#reviews" },
   { label: "Contact", href: "#contact" },
 ];

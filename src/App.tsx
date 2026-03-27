@@ -10,6 +10,7 @@ import AdminDashboard from "./pages/AdminDashboard.tsx";
 import PatientLogin from "./pages/PatientLogin.tsx";
 import PatientDashboard from "./pages/PatientDashboard.tsx";
 import TestCatalog from "./pages/TestCatalog.tsx";
+import Appointment from "./pages/Appointment.tsx";
 import NotFound from "./pages/NotFound.tsx";
 
 const queryClient = new QueryClient();
@@ -27,7 +28,9 @@ const App = () => (
           <Route path="/patient/dashboard" element={<PatientDashboard />} />
           <Route path="/admin" element={<AdminLogin />} />
           <Route path="/admin/dashboard" element={<AdminDashboard />} />
+          <Route path="/services" element={<TestCatalog />} />
           <Route path="/tests" element={<TestCatalog />} />
+          <Route path="/appointment" element={<Appointment />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
