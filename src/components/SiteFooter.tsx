@@ -20,9 +20,15 @@ const SiteFooter = () => {
           <div className="space-y-3">
             <h4 className="text-sm font-bold uppercase tracking-wider opacity-50">Quick Links</h4>
             <nav className="flex flex-col gap-2">
-              {["Home", "About", "Tests", "Reviews", "Contact"].map((l) => (
-                <a key={l} href={`#${l.toLowerCase() === "tests" ? "services" : l.toLowerCase()}`} className="text-sm opacity-70 hover:opacity-100 transition-opacity">
-                  {l}
+              {[
+                { label: "Home", href: "#home" },
+                { label: "About", href: "#about" },
+                { label: "Our Services", href: "#services" },
+                { label: "Reviews", href: "#reviews" },
+                { label: "Contact", href: "#contact" },
+              ].map((l) => (
+                <a key={l.label} href={l.href} className="text-sm opacity-70 hover:opacity-100 transition-opacity">
+                  {l.label}
                 </a>
               ))}
               <Link to="/patient" className="text-sm opacity-70 hover:opacity-100 transition-opacity">
@@ -58,7 +64,7 @@ const SiteFooter = () => {
 
         <div className="border-t border-background/10 mt-10 pt-6 text-center">
           <p className="text-xs opacity-50">
-            © {new Date().getFullYear()} Ciana Diagnostics And Laboratory. All rights reserved.
+            © {new Date().getFullYear()} Ciana Laboratory & Diagnostic Center. All rights reserved.
           </p>
         </div>
       </div>
