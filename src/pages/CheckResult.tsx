@@ -1,12 +1,11 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { Search, ArrowLeft, FileText, AlertCircle, Download, Printer, Eye } from "lucide-react";
+import { Search, ArrowLeft, FileText, AlertCircle, Download, Printer } from "lucide-react";
 import { Link } from "react-router-dom";
 import cianaLogo from "@/assets/ciana-logo.png";
 import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
 type PatientResult = {
   patient_name: string;
@@ -114,7 +113,7 @@ const CheckResult = () => {
           <form onSubmit={handleSubmit} className="bg-background rounded-xl border border-border shadow-sm p-6 space-y-4">
             <div>
               <label htmlFor="code" className="text-sm font-medium text-foreground mb-1.5 block">Unique Code</label>
-              <Input id="code" placeholder="e.g. CIANA/0000/26" value={code} onChange={(e) => setCode(e.target.value)} className="text-base tracking-wider uppercase" maxLength={15} />
+              <Input id="code" placeholder="e.g. CN/0000/26" value={code} onChange={(e) => setCode(e.target.value)} className="text-base tracking-wider uppercase" maxLength={15} />
             </div>
             <Button type="submit" className="w-full" disabled={loading || !code.trim()}>
               {loading ? (
@@ -152,44 +151,45 @@ const CheckResult = () => {
                 {result.tests.length === 0 ? (
                   <p className="text-sm text-muted-foreground">No test results found.</p>
                 ) : (
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Test</TableHead>
-                        <TableHead>Date</TableHead>
-                        <TableHead>Result</TableHead>
-                        <TableHead className="text-right">Actions</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {result.tests.map((t) => (
-                        <TableRow key={t.id}>
-                          <TableCell className="font-medium">{t.test_name}</TableCell>
-                          <TableCell className="text-muted-foreground text-sm">
-                            {new Date(t.test_date).toLocaleDateString("en-NG", { year: "numeric", month: "short", day: "numeric" })}
-                          </TableCell>
-                          <TableCell>{t.result}</TableCell>
-                          <TableCell className="text-right">
-                            {t.result_file_path ? (
-                              <div className="flex items-center justify-end gap-1">
-                                <Button variant="ghost" size="icon" onClick={() => { setPreviewUrl(getFileUrl(t.result_file_path!)); setPreviewIsImage(isImage(t.result_file_path!)); }} title="View">
-                                  <Eye className="w-4 h-4" />
-                                </Button>
-                                <Button variant="ghost" size="icon" onClick={() => handleDownload(t.result_file_path!)} title="Download">
-                                  <Download className="w-4 h-4" />
-                                </Button>
-                                <Button variant="ghost" size="icon" onClick={() => handlePrint(t.result_file_path!)} title="Print">
-                                  <Printer className="w-4 h-4" />
-                                </Button>
-                              </div>
-                            ) : (
-                              <span className="text-xs text-muted-foreground">No file</span>
-                            )}
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
+                  <div className="divide-y divide-border">
+                    {result.tests.map((t) => {
+                      const filePaths = t.result_file_path ? t.result_file_path.split(",").filter(Boolean) : [];
+                      return (
+                        <div key={t.id} className="py-4 first:pt-0 last:pb-0">
+                          <div className="flex items-start justify-between mb-1">
+                            <div>
+                              <p className="font-medium text-foreground">{t.test_name}</p>
+                              <p className="text-xs text-muted-foreground">
+                                {new Date(t.test_date).toLocaleDateString("en-NG", { year: "numeric", month: "short", day: "numeric" })}
+                              </p>
+                            </div>
+                            <span className="text-sm text-foreground">{t.result}</span>
+                          </div>
+                          {filePaths.length > 0 && (
+                            <div className="flex flex-wrap gap-2 mt-2">
+                              {filePaths.map((fp, i) => (
+                                <div key={i} className="flex items-center gap-1">
+                                  <Button variant="outline" size="sm" className="text-xs" onClick={() => {
+                                    setPreviewUrl(getFileUrl(fp));
+                                    setPreviewIsImage(isImage(fp));
+                                  }}>
+                                    <FileText className="w-3.5 h-3.5 mr-1" />
+                                    View Test File{filePaths.length > 1 ? ` ${i + 1}` : ""}
+                                  </Button>
+                                  <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleDownload(fp)}>
+                                    <Download className="w-3.5 h-3.5" />
+                                  </Button>
+                                  <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handlePrint(fp)}>
+                                    <Printer className="w-3.5 h-3.5" />
+                                  </Button>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
                 )}
               </div>
             </motion.div>

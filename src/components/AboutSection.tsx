@@ -1,64 +1,80 @@
 import { motion } from "framer-motion";
-import { ShieldCheck, Clock, Award } from "lucide-react";
+import { Eye, Target, Heart } from "lucide-react";
+
+const fadeInUp = {
+  initial: { opacity: 0, y: 20 },
+  whileInView: { opacity: 1, y: 0 },
+  viewport: { once: true },
+  transition: { duration: 0.5 },
+};
 
 const AboutSection = () => {
   return (
     <section id="about" className="section-padding relative overflow-hidden">
       <div className="blob blob-secondary w-[300px] h-[300px] -bottom-32 -right-32" />
 
-      <div className="container relative z-10">
+      <div className="container relative z-10 space-y-20">
+        {/* OUR VISION */}
+        <motion.div {...fadeInUp} className="max-w-3xl mx-auto text-center space-y-4">
+          <div className="w-14 h-14 bg-accent rounded-2xl flex items-center justify-center mx-auto">
+            <Eye className="w-7 h-7 text-accent-foreground" />
+          </div>
+          <span className="label-text">Our Vision</span>
+          <h2 className="text-3xl md:text-4xl font-bold text-foreground">
+            To make the most reliable diagnosis and provide the most outstanding services.
+          </h2>
+          <p className="text-muted-foreground leading-relaxed text-lg">
+            We want to be the name you trust whenever you need answers, because we know your health is the most important thing you have.
+          </p>
+        </motion.div>
+
+        {/* ABOUT US */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
-          transition={{ duration: 0.5 }}
-          className="max-w-2xl mx-auto text-center space-y-4"
+          transition={{ duration: 0.5, delay: 0.1 }}
+          className="max-w-3xl mx-auto text-center space-y-4"
         >
+          <div className="w-14 h-14 bg-primary/10 rounded-2xl flex items-center justify-center mx-auto">
+            <Heart className="w-7 h-7 text-primary" />
+          </div>
           <span className="label-text">About Us</span>
           <h2 className="text-3xl md:text-4xl font-bold text-foreground">
-            A Commitment to Precision
+            Who We Are
           </h2>
           <p className="text-muted-foreground leading-relaxed">
-            Ciana Diagnostics And Laboratory is a trusted medical diagnostics center in Enugu, Nigeria.
-            We combine advanced technology with experienced professionals to deliver fast, accurate,
-            and reliable diagnostic results that physicians and patients can depend on.
+            We are a community-focused laboratory and diagnostic center located in the heart of Enugu, committed to providing the most reliable medical testing and the most outstanding care for our clients.
+          </p>
+          <p className="text-muted-foreground leading-relaxed">
+            At Ciana, we understand that your health is more than just numbers on a report. It's about giving you the answers you need to make informed decisions about your well-being. We believe in quality, accuracy, and trust as the foundation of everything we do.
           </p>
         </motion.div>
 
-        <div className="grid md:grid-cols-3 gap-6 mt-14">
-          {[
-            {
-              icon: ShieldCheck,
-              title: "Trusted Results",
-              desc: "Every test undergoes rigorous quality control to ensure diagnostic accuracy you can rely on.",
-            },
-            {
-              icon: Clock,
-              title: "Fast Turnaround",
-              desc: "Same-day results for core tests. Because timely diagnosis leads to better health outcomes.",
-            },
-            {
-              icon: Award,
-              title: "Expert Staff",
-              desc: "Our team of certified laboratory scientists brings over a decade of combined clinical experience.",
-            },
-          ].map((item, i) => (
-            <motion.div
-              key={item.title}
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.5, delay: i * 0.1 }}
-              className="glass-card p-8 text-center"
-            >
-              <div className="w-12 h-12 bg-accent rounded-xl flex items-center justify-center mx-auto mb-5">
-                <item.icon className="w-6 h-6 text-accent-foreground" />
-              </div>
-              <h3 className="text-lg font-bold text-foreground mb-2">{item.title}</h3>
-              <p className="text-sm text-muted-foreground leading-relaxed">{item.desc}</p>
-            </motion.div>
-          ))}
-        </div>
+        {/* OUR MISSION STATEMENT */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.5, delay: 0.2 }}
+          className="max-w-3xl mx-auto"
+        >
+          <div className="glass-card p-8 md:p-12 text-center space-y-4">
+            <div className="w-14 h-14 bg-accent rounded-2xl flex items-center justify-center mx-auto">
+              <Target className="w-7 h-7 text-accent-foreground" />
+            </div>
+            <span className="label-text">Our Mission Statement</span>
+            <h2 className="text-3xl md:text-4xl font-bold text-foreground">
+              Our Commitment to You
+            </h2>
+            <p className="text-muted-foreground leading-relaxed">
+              We exist to ensure that the chain of high-quality health care delivery is never broken. We are here to exceed the expectations of our clients, offering not just top-notch diagnostic services, but also compassionate support every step of the way.
+            </p>
+            <p className="text-muted-foreground leading-relaxed">
+              Our mission is to be the preferred diagnostic center, where your health concerns are addressed with the utmost professionalism and care.
+            </p>
+          </div>
+        </motion.div>
       </div>
     </section>
   );

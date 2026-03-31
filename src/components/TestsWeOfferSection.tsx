@@ -1,32 +1,39 @@
 import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
 import { FlaskConical, ScanLine, Building2, GraduationCap, Briefcase, ArrowRight } from "lucide-react";
+import labImage from "@/assets/lab-image.jpg";
+import ultrasoundImage from "@/assets/ultrasound-image.jpg";
 
 const serviceCards = [
   {
     icon: FlaskConical,
     title: "Laboratory Testing",
     desc: "Comprehensive blood tests, microbiology, hematology, serology and more.",
+    image: labImage,
   },
   {
     icon: ScanLine,
     title: "Ultrasound Services",
     desc: "Abdominal, pelvic, obstetric, breast and other ultrasound scans.",
+    image: ultrasoundImage,
   },
   {
     icon: Building2,
     title: "Clinic Partnerships",
     desc: "Reliable diagnostic support for clinics and hospitals.",
+    image: null,
   },
   {
     icon: GraduationCap,
     title: "School Admission Screening",
     desc: "Medical screening packages for student enrollment.",
+    image: null,
   },
   {
     icon: Briefcase,
     title: "Employment Screening",
     desc: "Pre-employment health checks and assessments.",
+    image: null,
   },
 ];
 
@@ -59,13 +66,25 @@ const ServicesOverviewSection = () => {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ duration: 0.4, delay: i * 0.06 }}
-              className="glass-card p-7 text-center"
+              className="glass-card overflow-hidden"
             >
-              <div className="w-12 h-12 bg-accent rounded-xl flex items-center justify-center mx-auto mb-4">
-                <s.icon className="w-6 h-6 text-accent-foreground" />
+              {s.image && (
+                <div className="h-40 overflow-hidden">
+                  <img
+                    src={s.image}
+                    alt={s.title}
+                    className="w-full h-full object-cover"
+                    loading="lazy"
+                  />
+                </div>
+              )}
+              <div className="p-7 text-center">
+                <div className="w-12 h-12 bg-accent rounded-xl flex items-center justify-center mx-auto mb-4">
+                  <s.icon className="w-6 h-6 text-accent-foreground" />
+                </div>
+                <h3 className="text-base font-bold text-foreground mb-2">{s.title}</h3>
+                <p className="text-sm text-muted-foreground leading-relaxed">{s.desc}</p>
               </div>
-              <h3 className="text-base font-bold text-foreground mb-2">{s.title}</h3>
-              <p className="text-sm text-muted-foreground leading-relaxed">{s.desc}</p>
             </motion.div>
           ))}
         </div>

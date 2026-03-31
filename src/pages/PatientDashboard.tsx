@@ -1,10 +1,10 @@
 import { useEffect, useState } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { ArrowLeft, Download, Printer, Loader2, LogOut, Lock, Eye, Calendar } from "lucide-react";
+import { Download, Printer, Loader2, LogOut, Lock, Calendar, FileText } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import cianaLogo from "@/assets/ciana-logo.png";
 
@@ -42,7 +42,6 @@ const PatientDashboard = () => {
     const parsed: PatientSession = JSON.parse(stored);
     setPatient(parsed);
 
-    // Re-fetch patient to get latest approved status
     const fetchData = async () => {
       const { data: freshPatient } = await supabase
         .from("patients")
@@ -98,11 +97,13 @@ const PatientDashboard = () => {
     setPreviewIsImage(isImage(path));
   };
 
-  const handleDownloadAll = async () => {
+  const handleDownloadAll = () => {
     const filesWithPaths = tests.filter((t) => t.result_file_path);
     if (filesWithPaths.length === 0) return;
-    // Download files individually (ZIP requires a library)
-    filesWithPaths.forEach((t) => handleDownload(t.result_file_path!));
+    filesWithPaths.forEach((t) => {
+      const paths = t.result_file_path!.split(",").filter(Boolean);
+      paths.forEach((p) => handleDownload(p));
+    });
   };
 
   const handleLogout = () => {
@@ -213,44 +214,49 @@ const PatientDashboard = () => {
                 {dateFilter ? "No tests found for this date." : "No test results yet."}
               </div>
             ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Test Name</TableHead>
-                    <TableHead>Date</TableHead>
-                    <TableHead>Result</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredTests.map((t) => (
-                    <TableRow key={t.id}>
-                      <TableCell className="font-medium">{t.test_name}</TableCell>
-                      <TableCell className="text-muted-foreground text-sm">
-                        {new Date(t.test_date).toLocaleDateString("en-NG", { year: "numeric", month: "short", day: "numeric" })}
-                      </TableCell>
-                      <TableCell>{t.result}</TableCell>
-                      <TableCell className="text-right">
-                        {t.result_file_path ? (
-                          <div className="flex items-center justify-end gap-1">
-                            <Button variant="ghost" size="icon" onClick={() => handlePreview(t.result_file_path!)} title="View">
-                              <Eye className="w-4 h-4" />
-                            </Button>
-                            <Button variant="ghost" size="icon" onClick={() => handleDownload(t.result_file_path!)} title="Download">
-                              <Download className="w-4 h-4" />
-                            </Button>
-                            <Button variant="ghost" size="icon" onClick={() => handlePrint(t.result_file_path!)} title="Print">
-                              <Printer className="w-4 h-4" />
-                            </Button>
-                          </div>
-                        ) : (
-                          <span className="text-xs text-muted-foreground">No file</span>
-                        )}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+              <div className="divide-y divide-border">
+                {filteredTests.map((t) => {
+                  const filePaths = t.result_file_path ? t.result_file_path.split(",").filter(Boolean) : [];
+                  return (
+                    <div key={t.id} className="p-5">
+                      <div className="flex items-start justify-between mb-2">
+                        <div>
+                          <p className="font-semibold text-foreground">{t.test_name}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {new Date(t.test_date).toLocaleDateString("en-NG", { year: "numeric", month: "short", day: "numeric" })}
+                          </p>
+                        </div>
+                        <span className="text-sm font-medium text-foreground">{t.result}</span>
+                      </div>
+                      {filePaths.length > 0 ? (
+                        <div className="flex flex-wrap gap-2 mt-3">
+                          {filePaths.map((fp, i) => (
+                            <div key={i} className="flex items-center gap-1">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="text-xs"
+                                onClick={() => handlePreview(fp)}
+                              >
+                                <FileText className="w-3.5 h-3.5 mr-1" />
+                                View Test File {filePaths.length > 1 ? `${i + 1}` : ""}
+                              </Button>
+                              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleDownload(fp)}>
+                                <Download className="w-3.5 h-3.5" />
+                              </Button>
+                              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handlePrint(fp)}>
+                                <Printer className="w-3.5 h-3.5" />
+                              </Button>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-xs text-muted-foreground mt-2">No files attached</p>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
             )}
           </motion.section>
         )}
