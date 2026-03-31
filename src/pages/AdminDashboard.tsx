@@ -5,8 +5,9 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { LogOut, Plus, Loader2, Trash2, Upload, FileText, X, Search, ChevronDown, ChevronUp, Check } from "lucide-react";
+import { LogOut, Plus, Loader2, Trash2, Upload, FileText, X, Search, ChevronDown, ChevronUp, Check, Eye, Download, Pencil, ExternalLink } from "lucide-react";
 import { toast } from "sonner";
+import cianaLogo from "@/assets/ciana-logo.png";
 
 type Patient = {
   id: string;
@@ -21,7 +22,7 @@ type TestEntry = {
   test_name: string;
   result: string;
   test_date: string;
-  file: File | null;
+  files: File[];
 };
 
 type PatientTest = {
@@ -32,7 +33,7 @@ type PatientTest = {
   result_file_path: string | null;
 };
 
-const CODE_REGEX = /^CIANA\/\d{4}\/\d{2}$/;
+const CODE_REGEX = /^CN\/\d{4}\/\d{2}$/;
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
 const ALLOWED_FILE_TYPES = ["application/pdf", "image/png", "image/jpeg", "image/jpg", "image/webp"];
 
@@ -40,7 +41,7 @@ const emptyTest = (): TestEntry => ({
   test_name: "",
   result: "",
   test_date: new Date().toISOString().split("T")[0],
-  file: null,
+  files: [],
 });
 
 const sanitizeInput = (val: string, maxLen = 200) =>
@@ -65,6 +66,24 @@ const AdminDashboard = () => {
   const [addingTestFor, setAddingTestFor] = useState<string | null>(null);
   const [newTests, setNewTests] = useState<TestEntry[]>([emptyTest()]);
   const [submittingNewTest, setSubmittingNewTest] = useState(false);
+
+  // Editing patient
+  const [editingPatient, setEditingPatient] = useState<string | null>(null);
+  const [editName, setEditName] = useState("");
+  const [editEmail, setEditEmail] = useState("");
+  const [editCode, setEditCode] = useState("");
+
+  // Editing test
+  const [editingTest, setEditingTest] = useState<string | null>(null);
+  const [editTestName, setEditTestName] = useState("");
+  const [editTestResult, setEditTestResult] = useState("");
+
+  // View patient records
+  const [viewingPatient, setViewingPatient] = useState<Patient | null>(null);
+
+  // File preview
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [previewIsImage, setPreviewIsImage] = useState(false);
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -114,23 +133,32 @@ const AdminDashboard = () => {
     return null;
   };
 
-  const uploadFileAndInsertTest = async (patientId: string, patientCode: string, t: TestEntry) => {
-    let filePath: string | null = null;
-    if (t.file) {
-      const err = validateFile(t.file);
+  const getFileUrl = (path: string) => {
+    const { data } = supabase.storage.from("result-files").getPublicUrl(path);
+    return data.publicUrl;
+  };
+
+  const isImageFile = (path: string) => /\.(png|jpg|jpeg|webp)$/i.test(path);
+
+  const uploadFilesAndInsertTest = async (patientId: string, patientCode: string, t: TestEntry) => {
+    // Upload multiple files, store paths as comma-separated
+    const paths: string[] = [];
+    for (const file of t.files) {
+      const err = validateFile(file);
       if (err) { toast.error(`${t.test_name}: ${err}`); return false; }
-      const ext = t.file.name.split(".").pop()?.toLowerCase() || "bin";
-      const safeName = `${patientCode.replace(/\//g, "-")}-${Date.now()}.${ext}`;
-      const { error: uploadError } = await supabase.storage.from("result-files").upload(safeName, t.file);
+      const ext = file.name.split(".").pop()?.toLowerCase() || "bin";
+      const safeName = `${patientCode.replace(/\//g, "-")}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}.${ext}`;
+      const { error: uploadError } = await supabase.storage.from("result-files").upload(safeName, file);
       if (uploadError) { toast.error(`Failed to upload file for ${t.test_name}`); return false; }
-      filePath = safeName;
+      paths.push(safeName);
     }
+
     const { error } = await supabase.from("patient_tests").insert({
       patient_id: patientId,
       test_name: sanitizeInput(t.test_name),
       result: sanitizeInput(t.result),
       test_date: t.test_date,
-      result_file_path: filePath,
+      result_file_path: paths.length > 0 ? paths.join(",") : null,
     });
     if (error) { toast.error(`Failed to save test: ${t.test_name}`); return false; }
     return true;
@@ -143,7 +171,7 @@ const AdminDashboard = () => {
     const name = sanitizeInput(patientName, 100);
 
     if (!name || !code || !email) { toast.error("Please fill patient name, email, and code"); return; }
-    if (!CODE_REGEX.test(code)) { toast.error("Code must be in format: CIANA/0000/26"); return; }
+    if (!CODE_REGEX.test(code)) { toast.error("Code must be in format: CN/0000/26"); return; }
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { toast.error("Please enter a valid email"); return; }
 
     const validTests = tests.filter((t) => t.test_name.trim() && t.result.trim());
@@ -165,7 +193,7 @@ const AdminDashboard = () => {
     }
 
     for (const t of validTests) {
-      await uploadFileAndInsertTest(newPatient.id, code, t);
+      await uploadFilesAndInsertTest(newPatient.id, code, t);
     }
 
     toast.success("Patient and tests added successfully");
@@ -175,26 +203,27 @@ const AdminDashboard = () => {
     fetchPatients();
   };
 
-  // Add tests to existing patient
   const handleSubmitNewTests = async (patientId: string, code: string) => {
     const validTests = newTests.filter((t) => t.test_name.trim() && t.result.trim());
     if (validTests.length === 0) { toast.error("Add at least one test with name and result"); return; }
 
     setSubmittingNewTest(true);
     for (const t of validTests) {
-      await uploadFileAndInsertTest(patientId, code, t);
+      await uploadFilesAndInsertTest(patientId, code, t);
     }
     toast.success("Tests added successfully");
     setNewTests([emptyTest()]);
     setAddingTestFor(null);
     setSubmittingNewTest(false);
-    // Refresh tests for this patient
     await fetchTests(patientId);
   };
 
   const handleDeletePatient = async (p: Patient) => {
+    if (!confirm(`Delete patient ${p.patient_name}? This cannot be undone.`)) return;
     const testsData = patientTests[p.id] || [];
-    const filesToDelete = testsData.filter((t) => t.result_file_path).map((t) => t.result_file_path!);
+    const filesToDelete = testsData
+      .filter((t) => t.result_file_path)
+      .flatMap((t) => t.result_file_path!.split(","));
     if (filesToDelete.length > 0) await supabase.storage.from("result-files").remove(filesToDelete);
     const { error } = await supabase.from("patients").delete().eq("id", p.id);
     if (error) toast.error("Failed to delete");
@@ -203,11 +232,15 @@ const AdminDashboard = () => {
       setPatients((prev) => prev.filter((x) => x.id !== p.id));
       setPatientTests((prev) => { const n = { ...prev }; delete n[p.id]; return n; });
       if (expandedPatient === p.id) setExpandedPatient(null);
+      if (viewingPatient?.id === p.id) setViewingPatient(null);
     }
   };
 
   const handleDeleteTest = async (testId: string, patientId: string, filePath: string | null) => {
-    if (filePath) await supabase.storage.from("result-files").remove([filePath]);
+    if (filePath) {
+      const paths = filePath.split(",");
+      await supabase.storage.from("result-files").remove(paths);
+    }
     const { error } = await supabase.from("patient_tests").delete().eq("id", testId);
     if (error) toast.error("Failed to delete test");
     else {
@@ -229,30 +262,117 @@ const AdminDashboard = () => {
     }
   };
 
+  const handleUpdatePatient = async (p: Patient) => {
+    const code = sanitizeInput(editCode).toUpperCase();
+    const name = sanitizeInput(editName, 100);
+    const email = sanitizeInput(editEmail, 255).toLowerCase();
+
+    if (!name || !code) { toast.error("Name and code are required"); return; }
+    if (!CODE_REGEX.test(code)) { toast.error("Code must be in format: CN/0000/26"); return; }
+
+    const { error } = await supabase.from("patients").update({
+      patient_name: name,
+      code,
+      email: email || null,
+    }).eq("id", p.id);
+
+    if (error) {
+      toast.error("Failed to update patient");
+    } else {
+      setPatients((prev) => prev.map((x) => x.id === p.id ? { ...x, patient_name: name, code, email } : x));
+      setEditingPatient(null);
+      toast.success("Patient updated");
+    }
+  };
+
+  const handleUpdateTest = async (testId: string, patientId: string) => {
+    const { error } = await supabase.from("patient_tests").update({
+      test_name: sanitizeInput(editTestName),
+      result: sanitizeInput(editTestResult),
+    }).eq("id", testId);
+
+    if (error) toast.error("Failed to update test");
+    else {
+      toast.success("Test updated");
+      setEditingTest(null);
+      await fetchTests(patientId);
+    }
+  };
+
+  const handleAddFileToTest = async (testId: string, patientId: string, patientCode: string, file: File) => {
+    const err = validateFile(file);
+    if (err) { toast.error(err); return; }
+
+    const ext = file.name.split(".").pop()?.toLowerCase() || "bin";
+    const safeName = `${patientCode.replace(/\//g, "-")}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}.${ext}`;
+    const { error: uploadError } = await supabase.storage.from("result-files").upload(safeName, file);
+    if (uploadError) { toast.error("Failed to upload file"); return; }
+
+    const test = patientTests[patientId]?.find((t) => t.id === testId);
+    const existing = test?.result_file_path || "";
+    const newPath = existing ? `${existing},${safeName}` : safeName;
+
+    const { error } = await supabase.from("patient_tests").update({ result_file_path: newPath }).eq("id", testId);
+    if (error) toast.error("Failed to update test");
+    else {
+      toast.success("File added");
+      await fetchTests(patientId);
+    }
+  };
+
+  const handleDeleteFile = async (testId: string, patientId: string, fileToRemove: string) => {
+    await supabase.storage.from("result-files").remove([fileToRemove]);
+    const test = patientTests[patientId]?.find((t) => t.id === testId);
+    if (!test) return;
+    const paths = (test.result_file_path || "").split(",").filter((p) => p !== fileToRemove);
+    const newPath = paths.length > 0 ? paths.join(",") : null;
+    const { error } = await supabase.from("patient_tests").update({ result_file_path: newPath }).eq("id", testId);
+    if (error) toast.error("Failed to remove file");
+    else {
+      toast.success("File removed");
+      await fetchTests(patientId);
+    }
+  };
+
   const handleLogout = async () => {
     await supabase.auth.signOut();
     navigate("/admin", { replace: true });
   };
 
-  const updateTest = (idx: number, field: keyof TestEntry, value: string | File | null) => {
+  const updateTest = (idx: number, field: keyof TestEntry, value: string | File[] | null) => {
     setTests((prev) => prev.map((t, i) => i === idx ? { ...t, [field]: value } : t));
   };
   const addTest = () => setTests((prev) => [...prev, emptyTest()]);
   const removeTest = (idx: number) => setTests((prev) => prev.filter((_, i) => i !== idx));
 
-  const updateNewTest = (idx: number, field: keyof TestEntry, value: string | File | null) => {
+  const updateNewTest = (idx: number, field: keyof TestEntry, value: string | File[] | null) => {
     setNewTests((prev) => prev.map((t, i) => i === idx ? { ...t, [field]: value } : t));
   };
   const addNewTest = () => setNewTests((prev) => [...prev, emptyTest()]);
   const removeNewTest = (idx: number) => setNewTests((prev) => prev.filter((_, i) => i !== idx));
 
   const handleFileChange = (idx: number, e: React.ChangeEvent<HTMLInputElement>, setter: "main" | "new") => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const err = validateFile(file);
-    if (err) { toast.error(err); e.target.value = ""; return; }
-    if (setter === "main") updateTest(idx, "file", file);
-    else updateNewTest(idx, "file", file);
+    const fileList = e.target.files;
+    if (!fileList || fileList.length === 0) return;
+    const files = Array.from(fileList);
+    for (const file of files) {
+      const err = validateFile(file);
+      if (err) { toast.error(err); e.target.value = ""; return; }
+    }
+    if (setter === "main") {
+      setTests((prev) => prev.map((t, i) => i === idx ? { ...t, files: [...t.files, ...files] } : t));
+    } else {
+      setNewTests((prev) => prev.map((t, i) => i === idx ? { ...t, files: [...t.files, ...files] } : t));
+    }
+    e.target.value = "";
+  };
+
+  const removeFileFromTest = (idx: number, fileIdx: number, setter: "main" | "new") => {
+    if (setter === "main") {
+      setTests((prev) => prev.map((t, i) => i === idx ? { ...t, files: t.files.filter((_, fi) => fi !== fileIdx) } : t));
+    } else {
+      setNewTests((prev) => prev.map((t, i) => i === idx ? { ...t, files: t.files.filter((_, fi) => fi !== fileIdx) } : t));
+    }
   };
 
   const filteredPatients = patients.filter((p) => {
@@ -263,7 +383,6 @@ const AdminDashboard = () => {
 
   const renderTestForm = (
     testList: TestEntry[],
-    update: (i: number, f: keyof TestEntry, v: string | File | null) => void,
     add: () => void,
     remove: (i: number) => void,
     fileSetter: "main" | "new"
@@ -288,49 +407,278 @@ const AdminDashboard = () => {
           <div className="grid sm:grid-cols-3 gap-3">
             <div>
               <label className="text-xs font-medium text-foreground mb-1 block">Test Name</label>
-              <Input placeholder="e.g. Malaria Test" value={t.test_name} onChange={(e) => update(idx, "test_name", e.target.value)} maxLength={200} />
+              <Input placeholder="e.g. Malaria Test" value={t.test_name} onChange={(e) => {
+                if (fileSetter === "main") updateTest(idx, "test_name", e.target.value);
+                else updateNewTest(idx, "test_name", e.target.value);
+              }} maxLength={200} />
             </div>
             <div>
               <label className="text-xs font-medium text-foreground mb-1 block">Result</label>
-              <Input placeholder="e.g. Negative" value={t.result} onChange={(e) => update(idx, "result", e.target.value)} maxLength={500} />
+              <Input placeholder="e.g. Negative" value={t.result} onChange={(e) => {
+                if (fileSetter === "main") updateTest(idx, "result", e.target.value);
+                else updateNewTest(idx, "result", e.target.value);
+              }} maxLength={500} />
             </div>
             <div>
               <label className="text-xs font-medium text-foreground mb-1 block">Date</label>
-              <Input type="date" value={t.test_date} onChange={(e) => update(idx, "test_date", e.target.value)} />
+              <Input type="date" value={t.test_date} onChange={(e) => {
+                if (fileSetter === "main") updateTest(idx, "test_date", e.target.value);
+                else updateNewTest(idx, "test_date", e.target.value);
+              }} />
             </div>
           </div>
           <div>
-            <label className="text-xs font-medium text-foreground mb-1 block">Result File</label>
-            {t.file ? (
-              <div className="flex items-center gap-2 h-9 px-3 rounded-md border border-input bg-background text-sm">
-                <FileText className="w-4 h-4 text-muted-foreground shrink-0" />
-                <span className="truncate flex-1">{t.file.name}</span>
-                <button type="button" onClick={() => update(idx, "file", null)} className="text-muted-foreground hover:text-destructive">
-                  <X className="w-4 h-4" />
-                </button>
+            <label className="text-xs font-medium text-foreground mb-1 block">Result Files</label>
+            {t.files.length > 0 && (
+              <div className="space-y-1 mb-2">
+                {t.files.map((f, fi) => (
+                  <div key={fi} className="flex items-center gap-2 h-8 px-3 rounded-md border border-input bg-background text-sm">
+                    <FileText className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                    <span className="truncate flex-1 text-xs">{f.name}</span>
+                    <button type="button" onClick={() => removeFileFromTest(idx, fi, fileSetter)} className="text-muted-foreground hover:text-destructive">
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                ))}
               </div>
-            ) : (
-              <label className="cursor-pointer">
-                <input type="file" accept=".pdf,.png,.jpg,.jpeg,.webp" onChange={(e) => handleFileChange(idx, e, fileSetter)} className="hidden" />
-                <div className="flex items-center gap-2 h-9 px-3 rounded-md border border-dashed border-input text-sm text-muted-foreground hover:border-primary transition-colors">
-                  <Upload className="w-4 h-4" /> Upload File
-                </div>
-              </label>
             )}
+            <label className="cursor-pointer">
+              <input type="file" accept=".pdf,.png,.jpg,.jpeg,.webp" multiple onChange={(e) => handleFileChange(idx, e, fileSetter)} className="hidden" />
+              <div className="flex items-center gap-2 h-9 px-3 rounded-md border border-dashed border-input text-sm text-muted-foreground hover:border-primary transition-colors">
+                <Upload className="w-4 h-4" /> Upload Files
+              </div>
+            </label>
           </div>
         </div>
       ))}
     </div>
   );
 
+  // Patient Records View
+  if (viewingPatient) {
+    const vp = viewingPatient;
+    const vpTests = patientTests[vp.id] || [];
+
+    return (
+      <div className="min-h-screen bg-muted/30">
+        <header className="bg-background border-b border-border sticky top-0 z-40">
+          <div className="container flex h-16 items-center justify-between">
+            <div className="flex items-center gap-2">
+              <img src={cianaLogo} alt="Ciana Diagnostics" className="h-8 w-auto" />
+              <span className="font-semibold text-foreground tracking-tight">Patient Records</span>
+            </div>
+            <Button variant="outline" size="sm" onClick={() => setViewingPatient(null)}>
+              ← Back to Dashboard
+            </Button>
+          </div>
+        </header>
+
+        <main className="container py-8 space-y-6 max-w-4xl">
+          {/* Patient Info Card */}
+          <section className="bg-background rounded-xl border border-border shadow-sm p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-semibold text-foreground">Patient Information</h2>
+              {editingPatient === vp.id ? (
+                <div className="flex gap-2">
+                  <Button size="sm" onClick={() => handleUpdatePatient(vp)}>Save</Button>
+                  <Button size="sm" variant="ghost" onClick={() => setEditingPatient(null)}>Cancel</Button>
+                </div>
+              ) : (
+                <Button size="sm" variant="outline" onClick={() => {
+                  setEditingPatient(vp.id);
+                  setEditName(vp.patient_name);
+                  setEditEmail(vp.email || "");
+                  setEditCode(vp.code);
+                }}>
+                  <Pencil className="w-3.5 h-3.5 mr-1" /> Edit
+                </Button>
+              )}
+            </div>
+
+            {editingPatient === vp.id ? (
+              <div className="grid sm:grid-cols-3 gap-4">
+                <div>
+                  <label className="text-xs font-medium text-muted-foreground mb-1 block">Name</label>
+                  <Input value={editName} onChange={(e) => setEditName(e.target.value)} />
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-muted-foreground mb-1 block">Email</label>
+                  <Input value={editEmail} onChange={(e) => setEditEmail(e.target.value)} />
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-muted-foreground mb-1 block">Code</label>
+                  <Input value={editCode} onChange={(e) => setEditCode(e.target.value)} className="uppercase tracking-wider" />
+                  <p className="text-xs text-muted-foreground mt-1">Format: CN/0000/26</p>
+                </div>
+              </div>
+            ) : (
+              <div className="grid sm:grid-cols-3 gap-4">
+                <div>
+                  <p className="text-xs text-muted-foreground">Name</p>
+                  <p className="text-sm font-semibold text-foreground">{vp.patient_name}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Email</p>
+                  <p className="text-sm text-foreground">{vp.email || "—"}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Code</p>
+                  <p className="text-sm font-mono font-semibold text-foreground">{vp.code}</p>
+                </div>
+              </div>
+            )}
+          </section>
+
+          {/* Tests */}
+          <section className="bg-background rounded-xl border border-border shadow-sm">
+            <div className="p-6 border-b border-border flex items-center justify-between">
+              <h2 className="text-lg font-semibold text-foreground">Tests ({vpTests.length})</h2>
+              {addingTestFor !== vp.id && (
+                <Button size="sm" variant="outline" onClick={() => { setAddingTestFor(vp.id); setNewTests([emptyTest()]); }}>
+                  <Plus className="w-4 h-4 mr-1" /> Add Test
+                </Button>
+              )}
+            </div>
+
+            {/* Add test form inline */}
+            {addingTestFor === vp.id && (
+              <div className="p-6 border-b border-border bg-muted/10 space-y-4">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-sm font-semibold text-foreground">Add New Test</h4>
+                  <Button variant="ghost" size="sm" onClick={() => { setAddingTestFor(null); setNewTests([emptyTest()]); }}>
+                    <X className="w-4 h-4 mr-1" /> Cancel
+                  </Button>
+                </div>
+                {renderTestForm(newTests, addNewTest, removeNewTest, "new")}
+                <Button onClick={() => handleSubmitNewTests(vp.id, vp.code)} disabled={submittingNewTest}>
+                  {submittingNewTest ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+                  {submittingNewTest ? "Saving..." : "Save Tests"}
+                </Button>
+              </div>
+            )}
+
+            {vpTests.length === 0 ? (
+              <div className="text-center py-12 text-muted-foreground text-sm">No tests recorded yet.</div>
+            ) : (
+              <div className="divide-y divide-border">
+                {vpTests.map((t) => {
+                  const filePaths = t.result_file_path ? t.result_file_path.split(",").filter(Boolean) : [];
+                  const isEditing = editingTest === t.id;
+
+                  return (
+                    <div key={t.id} className="p-5 space-y-3">
+                      {isEditing ? (
+                        <div className="space-y-3">
+                          <div className="grid sm:grid-cols-2 gap-3">
+                            <div>
+                              <label className="text-xs font-medium text-muted-foreground mb-1 block">Test Name</label>
+                              <Input value={editTestName} onChange={(e) => setEditTestName(e.target.value)} />
+                            </div>
+                            <div>
+                              <label className="text-xs font-medium text-muted-foreground mb-1 block">Result</label>
+                              <Input value={editTestResult} onChange={(e) => setEditTestResult(e.target.value)} />
+                            </div>
+                          </div>
+                          <div className="flex gap-2">
+                            <Button size="sm" onClick={() => handleUpdateTest(t.id, vp.id)}>Save</Button>
+                            <Button size="sm" variant="ghost" onClick={() => setEditingTest(null)}>Cancel</Button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="flex items-start justify-between">
+                          <div>
+                            <p className="font-semibold text-foreground text-sm">{t.test_name}</p>
+                            <p className="text-xs text-muted-foreground mt-0.5">
+                              {new Date(t.test_date).toLocaleDateString("en-NG", { year: "numeric", month: "short", day: "numeric" })}
+                            </p>
+                            <p className="text-sm text-foreground mt-1">Result: {t.result}</p>
+                          </div>
+                          <div className="flex gap-1">
+                            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => {
+                              setEditingTest(t.id);
+                              setEditTestName(t.test_name);
+                              setEditTestResult(t.result);
+                            }}>
+                              <Pencil className="w-3.5 h-3.5" />
+                            </Button>
+                            <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-destructive" onClick={() => handleDeleteTest(t.id, vp.id, t.result_file_path)}>
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </Button>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Files */}
+                      <div className="space-y-1.5">
+                        <p className="text-xs font-medium text-muted-foreground">Files ({filePaths.length})</p>
+                        {filePaths.map((fp, fi) => (
+                          <div key={fi} className="flex items-center gap-2 text-sm bg-muted/30 rounded-lg px-3 py-2">
+                            <FileText className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                            <span className="truncate flex-1 text-xs">{fp.split("/").pop()}</span>
+                            <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => {
+                              const url = getFileUrl(fp);
+                              setPreviewUrl(url);
+                              setPreviewIsImage(isImageFile(fp));
+                            }}>
+                              <Eye className="w-3 h-3" />
+                            </Button>
+                            <a href={getFileUrl(fp)} target="_blank" rel="noopener noreferrer">
+                              <Button variant="ghost" size="icon" className="h-6 w-6">
+                                <Download className="w-3 h-3" />
+                              </Button>
+                            </a>
+                            <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive" onClick={() => handleDeleteFile(t.id, vp.id, fp)}>
+                              <Trash2 className="w-3 h-3" />
+                            </Button>
+                          </div>
+                        ))}
+                        <label className="cursor-pointer">
+                          <input type="file" accept=".pdf,.png,.jpg,.jpeg,.webp" className="hidden" onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) handleAddFileToTest(t.id, vp.id, vp.code, file);
+                            e.target.value = "";
+                          }} />
+                          <div className="flex items-center gap-2 h-8 px-3 rounded-md border border-dashed border-input text-xs text-muted-foreground hover:border-primary transition-colors w-fit">
+                            <Upload className="w-3.5 h-3.5" /> Add File
+                          </div>
+                        </label>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </section>
+        </main>
+
+        {/* Preview Modal */}
+        {previewUrl && (
+          <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => setPreviewUrl(null)}>
+            <div className="bg-background rounded-xl border border-border shadow-lg max-w-3xl w-full max-h-[80vh] overflow-auto" onClick={(e) => e.stopPropagation()}>
+              <div className="p-4 border-b border-border flex items-center justify-between">
+                <span className="font-medium text-foreground">File Preview</span>
+                <Button variant="ghost" size="sm" onClick={() => setPreviewUrl(null)}>Close</Button>
+              </div>
+              <div className="p-4">
+                {previewIsImage ? (
+                  <img src={previewUrl} alt="Result" className="w-full max-h-[60vh] object-contain" />
+                ) : (
+                  <iframe src={previewUrl} className="w-full h-[60vh]" title="Result PDF" />
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-muted/30">
       <header className="bg-background border-b border-border sticky top-0 z-40">
         <div className="container flex h-16 items-center justify-between">
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-md bg-primary flex items-center justify-center">
-              <span className="text-primary-foreground font-bold text-sm">C</span>
-            </div>
+            <img src={cianaLogo} alt="Ciana Diagnostics" className="h-8 w-auto" />
             <span className="font-semibold text-foreground tracking-tight">Admin Dashboard</span>
           </div>
           <Button variant="ghost" size="sm" onClick={handleLogout} className="text-muted-foreground">
@@ -358,17 +706,17 @@ const AdminDashboard = () => {
               <div>
                 <label className="text-sm font-medium text-foreground mb-1.5 block">Unique Code</label>
                 <Input
-                  placeholder="CIANA/0000/26"
+                  placeholder="CN/0000/26"
                   value={patientCode}
                   onChange={(e) => setPatientCode(e.target.value)}
                   className="uppercase tracking-wider"
                   maxLength={15}
                 />
-                <p className="text-xs text-muted-foreground mt-1">Format: CIANA/0000/26</p>
+                <p className="text-xs text-muted-foreground mt-1">Format: CN/0000/26</p>
               </div>
             </div>
 
-            {renderTestForm(tests, updateTest, addTest, removeTest, "main")}
+            {renderTestForm(tests, addTest, removeTest, "main")}
 
             <Button type="submit" className="w-full sm:w-auto" disabled={submitting}>
               {submitting ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
@@ -398,26 +746,35 @@ const AdminDashboard = () => {
               {filteredPatients.map((p) => (
                 <div key={p.id}>
                   <div className="flex items-center gap-4 px-6 py-4 cursor-pointer hover:bg-muted/30 transition-colors" onClick={() => toggleExpand(p.id)}>
-                    <div className="flex-1 grid grid-cols-2 sm:grid-cols-4 gap-2">
-                      <div>
-                        <p className="text-xs text-muted-foreground">Code</p>
-                        <p className="font-mono text-sm tracking-wider">{p.code}</p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-muted-foreground">Name</p>
-                        <p className="text-sm font-medium">{p.patient_name}</p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-muted-foreground">Email</p>
-                        <p className="text-sm truncate">{p.email || "—"}</p>
-                      </div>
-                      <div className="flex items-center gap-3">
-                        <div className={`px-2 py-0.5 rounded-full text-xs font-medium ${p.approved ? "bg-green-100 text-green-700" : "bg-amber-100 text-amber-700"}`}>
-                          {p.approved ? "Approved" : "Pending"}
+                    <div className="flex-1 min-w-0">
+                      <div className="grid grid-cols-1 sm:grid-cols-4 gap-2">
+                        <div className="min-w-0">
+                          <p className="text-xs text-muted-foreground">Code</p>
+                          <p className="font-mono text-sm tracking-wider truncate">{p.code}</p>
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-xs text-muted-foreground">Name</p>
+                          <p className="text-sm font-medium truncate">{p.patient_name}</p>
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-xs text-muted-foreground">Email</p>
+                          <p className="text-sm truncate">{p.email || "—"}</p>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <div className={`px-2 py-0.5 rounded-full text-xs font-medium ${p.approved ? "bg-green-100 text-green-700" : "bg-amber-100 text-amber-700"}`}>
+                            {p.approved ? "Approved" : "Pending"}
+                          </div>
                         </div>
                       </div>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1 shrink-0">
+                      <Button variant="outline" size="sm" onClick={(e) => {
+                        e.stopPropagation();
+                        setViewingPatient(p);
+                        fetchTests(p.id);
+                      }} className="text-xs hidden sm:flex">
+                        <ExternalLink className="w-3.5 h-3.5 mr-1" /> View Records
+                      </Button>
                       <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); handleToggleApproval(p); }} title={p.approved ? "Revoke approval" : "Approve"} className="text-muted-foreground hover:text-primary">
                         <Check className="w-4 h-4" />
                       </Button>
@@ -427,6 +784,18 @@ const AdminDashboard = () => {
                       {expandedPatient === p.id ? <ChevronUp className="w-4 h-4 text-muted-foreground" /> : <ChevronDown className="w-4 h-4 text-muted-foreground" />}
                     </div>
                   </div>
+
+                  {/* Mobile View Records */}
+                  {expandedPatient === p.id && (
+                    <div className="px-6 pb-2 sm:hidden">
+                      <Button variant="outline" size="sm" className="w-full text-xs" onClick={() => {
+                        setViewingPatient(p);
+                        fetchTests(p.id);
+                      }}>
+                        <ExternalLink className="w-3.5 h-3.5 mr-1" /> View Patient Records
+                      </Button>
+                    </div>
+                  )}
 
                   {/* Expanded tests */}
                   {expandedPatient === p.id && (
@@ -442,57 +811,55 @@ const AdminDashboard = () => {
                               <TableHead>Test</TableHead>
                               <TableHead>Result</TableHead>
                               <TableHead>Date</TableHead>
-                              <TableHead>File</TableHead>
+                              <TableHead>Files</TableHead>
                               <TableHead className="w-12" />
                             </TableRow>
                           </TableHeader>
                           <TableBody>
-                            {patientTests[p.id].map((t) => (
-                              <TableRow key={t.id}>
-                                <TableCell className="font-medium">{t.test_name}</TableCell>
-                                <TableCell>{t.result}</TableCell>
-                                <TableCell className="text-muted-foreground text-sm">
-                                  {new Date(t.test_date).toLocaleDateString("en-NG", { year: "numeric", month: "short", day: "numeric" })}
-                                </TableCell>
-                                <TableCell>
-                                  {t.result_file_path ? <FileText className="w-4 h-4 text-primary" /> : <span className="text-xs text-muted-foreground">—</span>}
-                                </TableCell>
-                                <TableCell>
-                                  <Button variant="ghost" size="icon" onClick={() => handleDeleteTest(t.id, p.id, t.result_file_path)} className="text-muted-foreground hover:text-destructive h-7 w-7">
-                                    <Trash2 className="w-3 h-3" />
-                                  </Button>
-                                </TableCell>
-                              </TableRow>
-                            ))}
+                            {patientTests[p.id].map((t) => {
+                              const filePaths = t.result_file_path ? t.result_file_path.split(",").filter(Boolean) : [];
+                              return (
+                                <TableRow key={t.id}>
+                                  <TableCell className="font-medium">{t.test_name}</TableCell>
+                                  <TableCell>{t.result}</TableCell>
+                                  <TableCell className="text-muted-foreground text-sm">
+                                    {new Date(t.test_date).toLocaleDateString("en-NG", { year: "numeric", month: "short", day: "numeric" })}
+                                  </TableCell>
+                                  <TableCell>
+                                    {filePaths.length > 0 ? (
+                                      <span className="text-xs text-primary font-medium">{filePaths.length} file{filePaths.length > 1 ? "s" : ""}</span>
+                                    ) : (
+                                      <span className="text-xs text-muted-foreground">—</span>
+                                    )}
+                                  </TableCell>
+                                  <TableCell>
+                                    <Button variant="ghost" size="icon" onClick={() => handleDeleteTest(t.id, p.id, t.result_file_path)} className="text-muted-foreground hover:text-destructive h-7 w-7">
+                                      <Trash2 className="w-3 h-3" />
+                                    </Button>
+                                  </TableCell>
+                                </TableRow>
+                              );
+                            })}
                           </TableBody>
                         </Table>
                       )}
 
-                      {/* Add New Test to this patient */}
                       {addingTestFor === p.id ? (
                         <div className="border border-border rounded-lg p-4 bg-background space-y-4">
                           <div className="flex items-center justify-between">
-                            <h4 className="text-sm font-semibold text-foreground">Add New Test for {p.patient_name}</h4>
+                            <h4 className="text-sm font-semibold text-foreground">Add New Test</h4>
                             <Button variant="ghost" size="sm" onClick={() => { setAddingTestFor(null); setNewTests([emptyTest()]); }}>
                               <X className="w-4 h-4 mr-1" /> Cancel
                             </Button>
                           </div>
-                          {renderTestForm(newTests, updateNewTest, addNewTest, removeNewTest, "new")}
-                          <Button
-                            onClick={() => handleSubmitNewTests(p.id, p.code)}
-                            disabled={submittingNewTest}
-                            className="w-full sm:w-auto"
-                          >
+                          {renderTestForm(newTests, addNewTest, removeNewTest, "new")}
+                          <Button onClick={() => handleSubmitNewTests(p.id, p.code)} disabled={submittingNewTest} className="w-full sm:w-auto">
                             {submittingNewTest ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
                             {submittingNewTest ? "Saving..." : "Save Tests"}
                           </Button>
                         </div>
                       ) : (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={(e) => { e.stopPropagation(); setAddingTestFor(p.id); setNewTests([emptyTest()]); }}
-                        >
+                        <Button variant="outline" size="sm" onClick={(e) => { e.stopPropagation(); setAddingTestFor(p.id); setNewTests([emptyTest()]); }}>
                           <Plus className="w-4 h-4 mr-1" /> Add New Test
                         </Button>
                       )}
