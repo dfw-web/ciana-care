@@ -28,6 +28,7 @@ const Index = () => {
       <SiteHeader />
       <main>
         <HeroSection />
+        <PatientPortalStrip />
         <WhyChooseUsSection />
         <AboutSection />
         <TestsWeOfferSection />
