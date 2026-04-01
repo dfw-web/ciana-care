@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { AnimatePresence } from "framer-motion";
 import SiteHeader from "@/components/SiteHeader";
 import HeroSection from "@/components/HeroSection";
+import PatientPortalStrip from "@/components/PatientPortalStrip";
 import WhyChooseUsSection from "@/components/WhyChooseUsSection";
 import AboutSection from "@/components/AboutSection";
 import TestsWeOfferSection from "@/components/TestsWeOfferSection";
@@ -27,6 +28,7 @@ const Index = () => {
       <SiteHeader />
       <main>
         <HeroSection />
+        <PatientPortalStrip />
         <WhyChooseUsSection />
         <AboutSection />
         <TestsWeOfferSection />
