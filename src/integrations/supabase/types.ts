@@ -14,6 +14,105 @@ export type Database = {
   }
   public: {
     Tables: {
+      activity_log: {
+        Row: {
+          action: string
+          created_at: string
+          id: string
+          staff_name: string
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          id?: string
+          staff_name: string
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          id?: string
+          staff_name?: string
+        }
+        Relationships: []
+      }
+      finance_expenses: {
+        Row: {
+          amount: number
+          created_at: string
+          date: string
+          description: string
+          id: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          date?: string
+          description: string
+          id?: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          date?: string
+          description?: string
+          id?: string
+        }
+        Relationships: []
+      }
+      finance_income: {
+        Row: {
+          amount: number
+          created_at: string
+          date: string
+          id: string
+          source: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          date?: string
+          id?: string
+          source: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          date?: string
+          id?: string
+          source?: string
+        }
+        Relationships: []
+      }
+      inventory_items: {
+        Row: {
+          category: string
+          created_at: string
+          id: string
+          name: string
+          price: number
+          quantity: number
+          updated_at: string
+        }
+        Insert: {
+          category: string
+          created_at?: string
+          id?: string
+          name: string
+          price?: number
+          quantity?: number
+          updated_at?: string
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          id?: string
+          name?: string
+          price?: number
+          quantity?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       patient_tests: {
         Row: {
           created_at: string
@@ -78,6 +177,44 @@ export type Database = {
           patient_name?: string
         }
         Relationships: []
+      }
+      stock_usage: {
+        Row: {
+          id: string
+          item_id: string
+          item_name: string
+          quantity_used: number
+          staff_name: string
+          total_cost: number
+          used_at: string
+        }
+        Insert: {
+          id?: string
+          item_id: string
+          item_name: string
+          quantity_used: number
+          staff_name: string
+          total_cost?: number
+          used_at?: string
+        }
+        Update: {
+          id?: string
+          item_id?: string
+          item_name?: string
+          quantity_used?: number
+          staff_name?: string
+          total_cost?: number
+          used_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "stock_usage_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_items"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {
