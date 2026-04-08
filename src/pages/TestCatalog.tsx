@@ -1,13 +1,48 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Link } from "react-router-dom";
 import { ArrowLeft, Search, ChevronDown, ChevronUp, MessageCircle, FlaskConical, ScanLine, Building2, GraduationCap, Briefcase } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
-import { SERVICE_GROUPS, formatPrice, type TestItem, type ServiceGroup } from "@/data/testCatalog";
+import { supabase } from "@/integrations/supabase/client";
 import cianaLogo from "@/assets/ciana-logo.png";
 
-type SelectedTest = TestItem & { category: string };
+type Service = { id: string; name: string; price: number; category: string; description: string };
+type SelectedTest = { name: string; price: number; category: string };
+
+const formatPrice = (price: number) =>
+  price === 0 ? "Price TBD" : `₦${price.toLocaleString("en-NG")}`;
+
+// Map categories to service groups
+const GROUP_MAP: Record<string, string> = {
+  "LIVER FUNCTION": "Laboratory Testing",
+  "KIDNEY": "Laboratory Testing",
+  "CARDIOVASCULAR SYSTEM": "Laboratory Testing",
+  "GASTROINTESTINAL TRACT": "Laboratory Testing",
+  "MUSCULOSKELETAL FUNCTION": "Laboratory Testing",
+  "TUMOUR MARKERS": "Laboratory Testing",
+  "METABOLIC DISORDERS": "Laboratory Testing",
+  "HEMATOLOGY": "Laboratory Testing",
+  "GENERAL TESTS": "Laboratory Testing",
+  "MICROBIOLOGY": "Laboratory Testing",
+  "SEROLOGY & IMMUNOLOGY": "Laboratory Testing",
+  "HEMATOLOGY & COAGULATION": "Laboratory Testing",
+  "ULTRASOUND SCANS": "Ultrasound Services",
+};
+
+const SERVICE_GROUP_ORDER = [
+  "Laboratory Testing",
+  "Ultrasound Services",
+  "Clinic Partnerships",
+  "School Admission Screening",
+  "Employment Screening",
+];
+
+const groupDescriptions: Record<string, string> = {
+  "Clinic Partnerships": "We collaborate with clinics and hospitals to provide reliable diagnostic support. Partner with us for seamless laboratory services for your patients.",
+  "School Admission Screening": "Comprehensive medical screening packages for students. Includes health assessments required for school admission and enrollment.",
+  "Employment Screening": "Pre-employment medical checks and health assessments. Ensure your workforce meets health and safety requirements.",
+};
 
 const groupIcons: Record<string, React.ElementType> = {
   "Laboratory Testing": FlaskConical,
@@ -18,25 +53,50 @@ const groupIcons: Record<string, React.ElementType> = {
 };
 
 const ServiceCatalog = () => {
+  const [services, setServices] = useState<Service[]>([]);
+  const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [activeGroup, setActiveGroup] = useState<string | null>(null);
   const [expandedCategory, setExpandedCategory] = useState<string | null>(null);
   const [selectedTests, setSelectedTests] = useState<SelectedTest[]>([]);
 
+  useEffect(() => {
+    supabase.from("services").select("*").order("category").order("name").then(({ data }) => {
+      setServices(data || []);
+      setLoading(false);
+    });
+  }, []);
+
+  // Build categories from DB
+  const categories = useMemo(() => {
+    const map: Record<string, Service[]> = {};
+    services.forEach((s) => {
+      if (!map[s.category]) map[s.category] = [];
+      map[s.category].push(s);
+    });
+    return Object.entries(map).map(([category, tests]) => ({ category, tests }));
+  }, [services]);
+
+  // Build group structure
+  const groups = useMemo(() => {
+    return SERVICE_GROUP_ORDER.map((group) => {
+      const cats = categories.filter((c) => (GROUP_MAP[c.category] || group) === group);
+      const isInfo = !!groupDescriptions[group];
+      return { group, categories: isInfo ? [] : cats, description: groupDescriptions[group] || "" };
+    });
+  }, [categories]);
+
   const activeGroupData = useMemo(() => {
     if (!activeGroup) return null;
-    return SERVICE_GROUPS.find((g) => g.group === activeGroup) || null;
-  }, [activeGroup]);
+    return groups.find((g) => g.group === activeGroup) || null;
+  }, [activeGroup, groups]);
 
   const filteredCategories = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
-    const cats = activeGroupData ? activeGroupData.categories : SERVICE_GROUPS.flatMap((g) => g.categories);
-
+    const cats = activeGroupData ? activeGroupData.categories : categories;
     if (!q) return cats;
-
     return cats
       .map((cat) => {
-        const categoryMatch = cat.category.toLowerCase().includes(q);
         const matchingTests = cat.tests.filter(
           (t) => t.name.toLowerCase().startsWith(q) || t.name.toLowerCase().includes(q)
         );
@@ -45,18 +105,18 @@ const ServiceCatalog = () => {
           const bS = b.name.toLowerCase().startsWith(q) ? 0 : 1;
           return aS - bS;
         });
-        if (categoryMatch) return { ...cat };
+        if (cat.category.toLowerCase().includes(q)) return { ...cat };
         if (matchingTests.length > 0) return { ...cat, tests: matchingTests };
         return null;
       })
       .filter(Boolean) as typeof cats;
-  }, [searchQuery, activeGroupData]);
+  }, [searchQuery, activeGroupData, categories]);
 
   const effectiveExpanded = searchQuery.trim()
     ? filteredCategories.length === 1 ? filteredCategories[0].category : expandedCategory
     : expandedCategory;
 
-  const toggleTest = (test: TestItem, category: string) => {
+  const toggleTest = (test: { name: string; price: number }, category: string) => {
     setSelectedTests((prev) => {
       const key = `${category}-${test.name}`;
       const exists = prev.find((s) => `${s.category}-${s.name}` === key);
@@ -65,7 +125,7 @@ const ServiceCatalog = () => {
     });
   };
 
-  const isSelected = (test: TestItem, category: string) =>
+  const isSelected = (test: { name: string }, category: string) =>
     selectedTests.some((s) => s.category === category && s.name === test.name);
 
   const total = selectedTests.reduce((sum, t) => sum + t.price, 0);
@@ -80,9 +140,7 @@ const ServiceCatalog = () => {
     let msg = "Hello, I would like to inquire/pay for the following services:\n\n";
     Object.entries(grouped).forEach(([cat, tests]) => {
       msg += `*${cat}*\n`;
-      tests.forEach((t) => {
-        msg += `• ${t.name} — ${formatPrice(t.price)}\n`;
-      });
+      tests.forEach((t) => { msg += `• ${t.name} — ${formatPrice(t.price)}\n`; });
       msg += "\n";
     });
     msg += `*Total: ${formatPrice(total)}*`;
@@ -90,6 +148,14 @@ const ServiceCatalog = () => {
   };
 
   const whatsappUrl = `https://wa.me/2347032364300?text=${encodeURIComponent(buildWhatsAppMessage())}`;
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-muted/30">
+        <p className="text-muted-foreground">Loading services...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-muted/30">
@@ -114,7 +180,7 @@ const ServiceCatalog = () => {
 
         {/* Service Group Cards */}
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
-          {SERVICE_GROUPS.map((g) => {
+          {groups.map((g) => {
             const Icon = groupIcons[g.group] || FlaskConical;
             const isActive = activeGroup === g.group;
             return (
@@ -149,13 +215,9 @@ const ServiceCatalog = () => {
           })}
         </div>
 
-        {/* Informational groups (no pricing) */}
-        {activeGroupData && activeGroupData.categories.length === 0 && (
-          <motion.div
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="bg-background rounded-xl border border-border p-8 text-center"
-          >
+        {/* Informational groups */}
+        {activeGroupData && activeGroupData.categories.length === 0 && activeGroupData.description && (
+          <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="bg-background rounded-xl border border-border p-8 text-center">
             <p className="text-muted-foreground leading-relaxed max-w-lg mx-auto">{activeGroupData.description}</p>
             <a
               href="https://wa.me/2347032364300?text=Hello%2C%20I%20would%20like%20to%20inquire%20about%20your%20services"
@@ -163,13 +225,12 @@ const ServiceCatalog = () => {
               rel="noopener noreferrer"
               className="inline-flex items-center gap-2 mt-6 px-6 py-3 rounded-xl bg-primary text-primary-foreground font-semibold text-sm hover:scale-[1.03] transition-transform"
             >
-              <MessageCircle className="w-5 h-5" />
-              Contact Us for Details
+              <MessageCircle className="w-5 h-5" /> Contact Us for Details
             </a>
           </motion.div>
         )}
 
-        {/* Search (only for groups with categories) */}
+        {/* Search + categories */}
         {(!activeGroupData || activeGroupData.categories.length > 0) && (
           <>
             <div className="relative">
@@ -183,7 +244,6 @@ const ServiceCatalog = () => {
               />
             </div>
 
-            {/* Categories */}
             <div className="space-y-3">
               {filteredCategories.length === 0 && (
                 <div className="text-center py-12">
@@ -194,14 +254,8 @@ const ServiceCatalog = () => {
               {filteredCategories.map((cat) => {
                 const isExpanded = effectiveExpanded === cat.category;
                 const selectedCount = selectedTests.filter((s) => s.category === cat.category).length;
-
                 return (
-                  <motion.div
-                    key={cat.category}
-                    initial={{ opacity: 0, y: 8 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="bg-background rounded-xl border border-border shadow-sm overflow-hidden"
-                  >
+                  <motion.div key={cat.category} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="bg-background rounded-xl border border-border shadow-sm overflow-hidden">
                     <button
                       onClick={() => setExpandedCategory(isExpanded ? null : cat.category)}
                       className="w-full flex items-center justify-between px-5 py-4 text-left hover:bg-muted/30 transition-colors"
@@ -210,33 +264,19 @@ const ServiceCatalog = () => {
                         <h2 className="font-semibold text-foreground text-sm uppercase tracking-wide">{cat.category}</h2>
                         <p className="text-xs text-muted-foreground mt-0.5">
                           {cat.tests.length} services
-                          {selectedCount > 0 && (
-                            <span className="ml-2 text-primary font-semibold">• {selectedCount} selected</span>
-                          )}
+                          {selectedCount > 0 && <span className="ml-2 text-primary font-semibold">• {selectedCount} selected</span>}
                         </p>
                       </div>
                       {isExpanded ? <ChevronUp className="w-5 h-5 text-muted-foreground" /> : <ChevronDown className="w-5 h-5 text-muted-foreground" />}
                     </button>
-
                     <AnimatePresence>
                       {isExpanded && (
-                        <motion.div
-                          initial={{ height: 0, opacity: 0 }}
-                          animate={{ height: "auto", opacity: 1 }}
-                          exit={{ height: 0, opacity: 0 }}
-                          transition={{ duration: 0.2 }}
-                          className="overflow-hidden"
-                        >
+                        <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.2 }} className="overflow-hidden">
                           <div className="border-t border-border divide-y divide-border">
                             {cat.tests.map((test) => {
                               const selected = isSelected(test, cat.category);
                               return (
-                                <label
-                                  key={`${cat.category}-${test.name}`}
-                                  className={`flex items-center gap-3 px-5 py-3.5 cursor-pointer transition-colors ${
-                                    selected ? "bg-accent/50" : "hover:bg-muted/20"
-                                  }`}
-                                >
+                                <label key={`${cat.category}-${test.name}`} className={`flex items-center gap-3 px-5 py-3.5 cursor-pointer transition-colors ${selected ? "bg-accent/50" : "hover:bg-muted/20"}`}>
                                   <Checkbox checked={selected} onCheckedChange={() => toggleTest(test, cat.category)} />
                                   <span className="flex-1 text-sm font-medium text-foreground">{test.name}</span>
                                   <span className="text-sm font-bold text-primary">{formatPrice(test.price)}</span>
@@ -257,31 +297,19 @@ const ServiceCatalog = () => {
         {/* Sticky bottom bar */}
         <AnimatePresence>
           {selectedTests.length > 0 && (
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: 20 }}
-              className="fixed bottom-0 left-0 right-0 bg-background border-t border-border shadow-lg z-50"
-            >
+            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 20 }} className="fixed bottom-0 left-0 right-0 bg-background border-t border-border shadow-lg z-50">
               <div className="container max-w-4xl mx-auto flex items-center justify-between py-4 gap-4">
                 <div>
                   <p className="text-sm text-muted-foreground">{selectedTests.length} service{selectedTests.length > 1 ? "s" : ""} selected</p>
                   <p className="text-xl font-bold text-foreground">Total: {formatPrice(total)}</p>
                 </div>
-                <a
-                  href={whatsappUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-whatsapp text-white font-semibold text-sm hover:scale-105 transition-transform shadow-md"
-                >
-                  <MessageCircle className="w-5 h-5" />
-                  Make Inquiry
+                <a href={whatsappUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-whatsapp text-white font-semibold text-sm hover:scale-105 transition-transform shadow-md">
+                  <MessageCircle className="w-5 h-5" /> Make Inquiry
                 </a>
               </div>
             </motion.div>
           )}
         </AnimatePresence>
-
         {selectedTests.length > 0 && <div className="h-24" />}
       </main>
     </div>
