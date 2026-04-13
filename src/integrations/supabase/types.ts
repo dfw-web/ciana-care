@@ -35,6 +35,24 @@ export type Database = {
         }
         Relationships: []
       }
+      admins: {
+        Row: {
+          created_at: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       finance_expenses: {
         Row: {
           amount: number
@@ -178,6 +196,73 @@ export type Database = {
         }
         Relationships: []
       }
+      result_codes: {
+        Row: {
+          code: string
+          created_at: string
+          expires_at: string
+          id: string
+          is_used: boolean
+          patient_id: string
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          expires_at: string
+          id?: string
+          is_used?: boolean
+          patient_id: string
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          expires_at?: string
+          id?: string
+          is_used?: boolean
+          patient_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "result_codes_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      results: {
+        Row: {
+          created_at: string
+          id: string
+          patient_id: string
+          result_data: Json | null
+          test_type: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          patient_id: string
+          result_data?: Json | null
+          test_type: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          patient_id?: string
+          result_data?: Json | null
+          test_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "results_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       services: {
         Row: {
           category: string
@@ -243,15 +328,39 @@ export type Database = {
           },
         ]
       }
+      user_roles: {
+        Row: {
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "admin" | "patient"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -378,6 +487,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["admin", "patient"],
+    },
   },
 } as const
