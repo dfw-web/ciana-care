@@ -10,6 +10,26 @@ import { toast } from "sonner";
 type Income = { id: string; amount: number; source: string; date: string; };
 type Expense = { id: string; amount: number; description: string; date: string; };
 
+// Get today's date in Nigeria (Africa/Lagos) as YYYY-MM-DD
+const nigeriaToday = () => {
+  const fmt = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Africa/Lagos", year: "numeric", month: "2-digit", day: "2-digit",
+  });
+  return fmt.format(new Date()); // en-CA → YYYY-MM-DD
+};
+
+const nigeriaYearStart = () => `${nigeriaToday().slice(0, 4)}-01-01`;
+
+const nigeriaDaysAgo = (days: number) => {
+  const today = nigeriaToday();
+  const d = new Date(`${today}T00:00:00+01:00`);
+  d.setDate(d.getDate() - days);
+  const fmt = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Africa/Lagos", year: "numeric", month: "2-digit", day: "2-digit",
+  });
+  return fmt.format(d);
+};
+
 const FinanceSection = () => {
   const [incomes, setIncomes] = useState<Income[]>([]);
   const [expenses, setExpenses] = useState<Expense[]>([]);
@@ -17,19 +37,19 @@ const FinanceSection = () => {
 
   const [incAmount, setIncAmount] = useState("");
   const [incSource, setIncSource] = useState("");
-  const [incDate, setIncDate] = useState(new Date().toISOString().split("T")[0]);
+  const [incDate, setIncDate] = useState(nigeriaToday());
 
   const [expAmount, setExpAmount] = useState("");
   const [expDesc, setExpDesc] = useState("");
-  const [expDate, setExpDate] = useState(new Date().toISOString().split("T")[0]);
+  const [expDate, setExpDate] = useState(nigeriaToday());
 
   useEffect(() => { fetchAll(); }, []);
 
   const fetchAll = async () => {
     setLoading(true);
     const [iRes, eRes] = await Promise.all([
-      supabase.from("finance_income").select("*").order("date", { ascending: false }).limit(200),
-      supabase.from("finance_expenses").select("*").order("date", { ascending: false }).limit(200),
+      supabase.from("finance_income").select("*").order("date", { ascending: false }).limit(500),
+      supabase.from("finance_expenses").select("*").order("date", { ascending: false }).limit(500),
     ]);
     setIncomes((iRes.data || []) as Income[]);
     setExpenses((eRes.data || []) as Expense[]);
@@ -60,47 +80,52 @@ const FinanceSection = () => {
 
   if (loading) return <div className="flex items-center justify-center py-16"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></div>;
 
-  const today = new Date().toISOString().split("T")[0];
-  const now = new Date();
-  const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
-  const yearStart = new Date(now.getFullYear(), 0, 1).toISOString().split("T")[0];
+  const today = nigeriaToday();
+  const thirtyDaysAgo = nigeriaDaysAgo(30);
+  const yearStart = nigeriaYearStart();
 
-  const sumBy = (arr: { amount: number; date: string }[], from: string) =>
-    arr.filter((r) => r.date >= from).reduce((s, r) => s + Number(r.amount), 0);
+  const sumRange = (arr: { amount: number; date: string }[], from: string, to?: string) =>
+    arr.filter((r) => r.date >= from && (!to || r.date <= to)).reduce((s, r) => s + Number(r.amount), 0);
 
-  const dailyInc = sumBy(incomes, today);
-  const dailyExp = sumBy(expenses, today);
-  const monthlyInc = sumBy(incomes, thirtyDaysAgo);
-  const monthlyExp = sumBy(expenses, thirtyDaysAgo);
-  const yearlyInc = sumBy(incomes, yearStart);
-  const yearlyExp = sumBy(expenses, yearStart);
+  const dailyInc = sumRange(incomes, today, today);
+  const dailyExp = sumRange(expenses, today, today);
+  const monthlyInc = sumRange(incomes, thirtyDaysAgo);
+  const monthlyExp = sumRange(expenses, thirtyDaysAgo);
+  const yearlyInc = sumRange(incomes, yearStart);
+  const yearlyExp = sumRange(expenses, yearStart);
+
+  const periods = [
+    { label: "Today", inc: dailyInc, exp: dailyExp },
+    { label: "Last 30 Days", inc: monthlyInc, exp: monthlyExp },
+    { label: "This Year", inc: yearlyInc, exp: yearlyExp },
+  ];
 
   return (
     <div className="space-y-6">
-      {/* Summary Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        {[
-          { label: "Today", inc: dailyInc, exp: dailyExp },
-          { label: "Monthly (30 days)", inc: monthlyInc, exp: monthlyExp },
-          { label: "Yearly", inc: yearlyInc, exp: yearlyExp },
-        ].map((p) => (
-          <div key={p.label} className="bg-background rounded-xl border border-border shadow-sm p-5 space-y-2">
-            <p className="text-xs font-medium text-muted-foreground">{p.label}</p>
-            <div className="flex items-center gap-2 text-green-600">
-              <TrendingUp className="w-4 h-4" />
-              <span className="font-bold">₦{p.inc.toLocaleString()}</span>
+        {periods.map((p) => {
+          const net = p.inc - p.exp;
+          const positive = net >= 0;
+          return (
+            <div key={p.label} className="bg-background rounded-xl border border-border shadow-sm p-5 space-y-3">
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{p.label}</p>
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between text-sm">
+                  <span className="flex items-center gap-1.5 text-green-600"><TrendingUp className="w-3.5 h-3.5" /> Income</span>
+                  <span className="font-semibold text-foreground">₦{p.inc.toLocaleString()}</span>
+                </div>
+                <div className="flex items-center justify-between text-sm">
+                  <span className="flex items-center gap-1.5 text-destructive"><TrendingDown className="w-3.5 h-3.5" /> Expenses</span>
+                  <span className="font-semibold text-foreground">₦{p.exp.toLocaleString()}</span>
+                </div>
+              </div>
+              <div className={`pt-3 border-t border-border flex items-center justify-between ${positive ? "text-green-600" : "text-destructive"}`}>
+                <span className="text-xs font-medium">{positive ? "Net Profit" : "Net Loss"}</span>
+                <span className="font-bold text-base">₦{Math.abs(net).toLocaleString()}</span>
+              </div>
             </div>
-            <div className="flex items-center gap-2 text-destructive">
-              <TrendingDown className="w-4 h-4" />
-              <span className="font-bold">₦{p.exp.toLocaleString()}</span>
-            </div>
-            <div className="pt-2 border-t border-border">
-              <p className={`font-bold text-sm ${p.inc - p.exp >= 0 ? "text-green-600" : "text-destructive"}`}>
-                Net: ₦{(p.inc - p.exp).toLocaleString()}
-              </p>
-            </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       <Tabs defaultValue="income">
