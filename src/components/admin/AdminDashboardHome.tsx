@@ -13,15 +13,15 @@ const AdminDashboardHome = () => {
     if (roleLoading) return;
     const load = async () => {
       const today = new Date().toISOString().split("T")[0];
-      const baseQueries: Promise<unknown>[] = [
-        supabase.from("patients").select("id", { count: "exact", head: true }),
-        supabase.from("inventory_items").select("id, quantity").lt("quantity", 10),
+      const baseQueries = [
+        supabase.from("patients").select("id", { count: "exact", head: true }).then((r) => r),
+        supabase.from("inventory_items").select("id, quantity").lt("quantity", 10).then((r) => r),
       ];
-      const ownerQueries: Promise<unknown>[] = isOwner
+      const ownerQueries = isOwner
         ? [
-            supabase.from("finance_income").select("amount").eq("date", today),
-            supabase.from("finance_expenses").select("amount").eq("date", today),
-            supabase.from("activity_log").select("action, staff_name, created_at").order("created_at", { ascending: false }).limit(10),
+            supabase.from("finance_income").select("amount").eq("date", today).then((r) => r),
+            supabase.from("finance_expenses").select("amount").eq("date", today).then((r) => r),
+            supabase.from("activity_log").select("action, staff_name, created_at").order("created_at", { ascending: false }).limit(10).then((r) => r),
           ]
         : [];
 
