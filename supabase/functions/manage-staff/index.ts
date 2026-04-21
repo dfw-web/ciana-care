@@ -70,7 +70,12 @@ serve(async (req) => {
       });
       if (error) throw error;
       const newId = created.user!.id;
-      await admin.from("user_roles").insert({ user_id: newId, role: body.role });
+      const { error: roleErr } = await admin.from("user_roles").insert({ user_id: newId, role: body.role });
+      if (roleErr) {
+        // Roll back: delete the auth user so we don't leave an account with no role
+        await admin.auth.admin.deleteUser(newId);
+        throw new Error(`Role assignment failed: ${roleErr.message}`);
+      }
       await admin.from("activity_log").insert({ staff_name: user.email || "owner", action: `Created ${body.role}: ${body.email}` });
       return new Response(JSON.stringify({ success: true, user_id: newId }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }

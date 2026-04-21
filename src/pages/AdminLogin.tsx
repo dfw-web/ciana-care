@@ -37,7 +37,7 @@ const AdminLogin = () => {
       setError("Invalid email or password. Please try again.");
       return;
     }
-    navigate("/admin/dashboard");
+    navigate("/admin/dashboard", { replace: true });
   };
 
   return (
