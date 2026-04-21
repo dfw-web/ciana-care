@@ -1,45 +1,56 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { Users, Package, DollarSign, AlertTriangle, Loader2 } from "lucide-react";
+import { Users, DollarSign, AlertTriangle, Loader2 } from "lucide-react";
+import { useUserRole } from "@/hooks/useUserRole";
 
 const AdminDashboardHome = () => {
+  const { isOwner, loading: roleLoading } = useUserRole();
   const [stats, setStats] = useState({ patients: 0, lowStock: 0, todayIncome: 0, todayExpenses: 0 });
   const [recentLogs, setRecentLogs] = useState<{ action: string; staff_name: string; created_at: string }[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (roleLoading) return;
     const load = async () => {
-      const [pRes, iRes, incRes, expRes, logRes] = await Promise.all([
+      const today = new Date().toISOString().split("T")[0];
+      const baseQueries: Promise<unknown>[] = [
         supabase.from("patients").select("id", { count: "exact", head: true }),
         supabase.from("inventory_items").select("id, quantity").lt("quantity", 10),
-        supabase.from("finance_income").select("amount").eq("date", new Date().toISOString().split("T")[0]),
-        supabase.from("finance_expenses").select("amount").eq("date", new Date().toISOString().split("T")[0]),
-        supabase.from("activity_log").select("action, staff_name, created_at").order("created_at", { ascending: false }).limit(10),
-      ]);
+      ];
+      const ownerQueries: Promise<unknown>[] = isOwner
+        ? [
+            supabase.from("finance_income").select("amount").eq("date", today),
+            supabase.from("finance_expenses").select("amount").eq("date", today),
+            supabase.from("activity_log").select("action, staff_name, created_at").order("created_at", { ascending: false }).limit(10),
+          ]
+        : [];
 
-      const todayIncome = (incRes.data || []).reduce((s, r) => s + Number(r.amount), 0);
-      const todayExpenses = (expRes.data || []).reduce((s, r) => s + Number(r.amount), 0);
+      const results = await Promise.all([...baseQueries, ...ownerQueries]);
+      const [pRes, iRes, incRes, expRes, logRes] = results as Array<{ data?: unknown; count?: number }>;
+
+      const todayIncome = isOwner ? ((incRes?.data as { amount: number }[]) || []).reduce((s, r) => s + Number(r.amount), 0) : 0;
+      const todayExpenses = isOwner ? ((expRes?.data as { amount: number }[]) || []).reduce((s, r) => s + Number(r.amount), 0) : 0;
 
       setStats({
         patients: pRes.count || 0,
-        lowStock: (iRes.data || []).length,
+        lowStock: ((iRes.data as unknown[]) || []).length,
         todayIncome,
         todayExpenses,
       });
-      setRecentLogs(logRes.data || []);
+      setRecentLogs(isOwner ? ((logRes?.data as { action: string; staff_name: string; created_at: string }[]) || []) : []);
       setLoading(false);
     };
     load();
-  }, []);
+  }, [isOwner, roleLoading]);
 
   if (loading) return <div className="flex items-center justify-center py-16"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></div>;
 
   const cards = [
-    { label: "Total Patients", value: stats.patients, icon: Users, color: "text-primary" },
-    { label: "Low Stock Items", value: stats.lowStock, icon: AlertTriangle, color: stats.lowStock > 0 ? "text-destructive" : "text-green-600" },
-    { label: "Today's Income", value: `₦${stats.todayIncome.toLocaleString()}`, icon: DollarSign, color: "text-green-600" },
-    { label: "Today's Expenses", value: `₦${stats.todayExpenses.toLocaleString()}`, icon: DollarSign, color: "text-amber-600" },
-  ];
+    { label: "Total Patients", value: stats.patients, icon: Users, color: "text-primary", show: true },
+    { label: "Low Stock Items", value: stats.lowStock, icon: AlertTriangle, color: stats.lowStock > 0 ? "text-destructive" : "text-green-600", show: true },
+    { label: "Today's Income", value: `₦${stats.todayIncome.toLocaleString()}`, icon: DollarSign, color: "text-green-600", show: isOwner },
+    { label: "Today's Expenses", value: `₦${stats.todayExpenses.toLocaleString()}`, icon: DollarSign, color: "text-amber-600", show: isOwner },
+  ].filter((c) => c.show);
 
   return (
     <div className="space-y-6">
