@@ -24,7 +24,7 @@ export function useUserRole() {
     const fetchRoles = async (userId: string) => {
       try {
         const { data, error: qErr } = await withTimeout(
-          supabase.from("user_roles").select("role").eq("user_id", userId),
+          Promise.resolve(supabase.from("user_roles").select("role").eq("user_id", userId)),
           8000,
           "user_roles query"
         );
