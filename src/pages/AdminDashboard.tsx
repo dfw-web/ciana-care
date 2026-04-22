@@ -8,7 +8,7 @@ import StockManagement from "@/components/admin/StockManagement";
 import FinanceSection from "@/components/admin/FinanceSection";
 import StaffSection from "@/components/admin/StaffSection";
 import { useUserRole } from "@/hooks/useUserRole";
-import { useEffect, useState as useReactState } from "react";
+import { useState as useReactState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Loader2, ShieldAlert, AlertTriangle } from "lucide-react";
