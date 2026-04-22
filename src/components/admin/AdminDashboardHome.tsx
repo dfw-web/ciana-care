@@ -11,36 +11,56 @@ const AdminDashboardHome = () => {
 
   useEffect(() => {
     if (roleLoading) return;
+    let active = true;
+
+    const safe = async <T,>(p: Promise<T>, label: string): Promise<T | null> => {
+      try {
+        return await Promise.race([
+          p,
+          new Promise<T>((_, reject) => setTimeout(() => reject(new Error(`${label} timeout`)), 8000)),
+        ]);
+      } catch (e) {
+        console.error(`[Dashboard] ${label} failed:`, e);
+        return null;
+      }
+    };
+
     const load = async () => {
       const today = new Date().toISOString().split("T")[0];
-      const baseQueries = [
-        supabase.from("patients").select("id", { count: "exact", head: true }).then((r) => r),
-        supabase.from("inventory_items").select("id, quantity").lt("quantity", 10).then((r) => r),
-      ];
-      const ownerQueries = isOwner
-        ? [
-            supabase.from("finance_income").select("amount").eq("date", today).then((r) => r),
-            supabase.from("finance_expenses").select("amount").eq("date", today).then((r) => r),
-            supabase.from("activity_log").select("action, staff_name, created_at").order("created_at", { ascending: false }).limit(10).then((r) => r),
-          ]
-        : [];
 
-      const results = await Promise.all([...baseQueries, ...ownerQueries]);
-      const [pRes, iRes, incRes, expRes, logRes] = results as Array<{ data?: unknown; count?: number }>;
+      const [pRes, iRes] = await Promise.all([
+        safe(Promise.resolve(supabase.from("patients").select("id", { count: "exact", head: true })), "patients"),
+        safe(Promise.resolve(supabase.from("inventory_items").select("id, quantity").lt("quantity", 10)), "inventory"),
+      ]);
 
-      const todayIncome = isOwner ? ((incRes?.data as { amount: number }[]) || []).reduce((s, r) => s + Number(r.amount), 0) : 0;
-      const todayExpenses = isOwner ? ((expRes?.data as { amount: number }[]) || []).reduce((s, r) => s + Number(r.amount), 0) : 0;
+      let todayIncome = 0;
+      let todayExpenses = 0;
+      let logs: { action: string; staff_name: string; created_at: string }[] = [];
 
+      if (isOwner) {
+        const [incRes, expRes, logRes] = await Promise.all([
+          safe(Promise.resolve(supabase.from("finance_income").select("amount").eq("date", today)), "income"),
+          safe(Promise.resolve(supabase.from("finance_expenses").select("amount").eq("date", today)), "expenses"),
+          safe(Promise.resolve(supabase.from("activity_log").select("action, staff_name, created_at").order("created_at", { ascending: false }).limit(10)), "activity_log"),
+        ]);
+        todayIncome = ((incRes?.data as { amount: number }[] | undefined) || []).reduce((s, r) => s + Number(r.amount), 0);
+        todayExpenses = ((expRes?.data as { amount: number }[] | undefined) || []).reduce((s, r) => s + Number(r.amount), 0);
+        logs = (logRes?.data as typeof logs | undefined) || [];
+      }
+
+      if (!active) return;
       setStats({
-        patients: pRes.count || 0,
-        lowStock: ((iRes.data as unknown[]) || []).length,
+        patients: pRes?.count || 0,
+        lowStock: ((iRes?.data as unknown[] | undefined) || []).length,
         todayIncome,
         todayExpenses,
       });
-      setRecentLogs(isOwner ? ((logRes?.data as { action: string; staff_name: string; created_at: string }[]) || []) : []);
+      setRecentLogs(logs);
       setLoading(false);
     };
+
     load();
+    return () => { active = false; };
   }, [isOwner, roleLoading]);
 
   if (loading) return <div className="flex items-center justify-center py-16"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></div>;
