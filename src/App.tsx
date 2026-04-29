@@ -7,6 +7,7 @@ import Index from "./pages/Index.tsx";
 import CheckResult from "./pages/CheckResult.tsx";
 import AdminLogin from "./pages/AdminLogin.tsx";
 import AdminDashboard from "./pages/AdminDashboard.tsx";
+import AdminResetPassword from "./pages/AdminResetPassword.tsx";
 import PatientLogin from "./pages/PatientLogin.tsx";
 import PatientDashboard from "./pages/PatientDashboard.tsx";
 import TestCatalog from "./pages/TestCatalog.tsx";
@@ -28,6 +29,7 @@ const App = () => (
           <Route path="/patient/dashboard" element={<PatientDashboard />} />
           <Route path="/admin" element={<AdminLogin />} />
           <Route path="/admin/dashboard" element={<AdminDashboard />} />
+          <Route path="/admin/reset-password" element={<AdminResetPassword />} />
           <Route path="/services" element={<TestCatalog />} />
           <Route path="/tests" element={<TestCatalog />} />
           <Route path="/appointment" element={<Appointment />} />
