@@ -7,6 +7,7 @@ import Index from "./pages/Index.tsx";
 import CheckResult from "./pages/CheckResult.tsx";
 import AdminLogin from "./pages/AdminLogin.tsx";
 import AdminDashboard from "./pages/AdminDashboard.tsx";
+import AdminResetPassword from "./pages/AdminResetPassword.tsx";
 import PatientLogin from "./pages/PatientLogin.tsx";
 import PatientDashboard from "./pages/PatientDashboard.tsx";
 import TestCatalog from "./pages/TestCatalog.tsx";
