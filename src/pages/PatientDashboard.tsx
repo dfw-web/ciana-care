@@ -93,6 +93,12 @@ const PatientDashboard = () => {
   };
 
   const handlePreview = (path: string) => {
+    const ext = path.split(".").pop()?.toLowerCase() || "";
+    if (ext === "doc" || ext === "docx") {
+      // Word files cannot preview inline — download instead
+      handleDownload(path);
+      return;
+    }
     setPreviewUrl(getFileUrl(path));
     setPreviewIsImage(isImage(path));
   };
