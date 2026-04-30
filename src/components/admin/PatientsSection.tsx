@@ -34,8 +34,15 @@ type PatientTest = {
 };
 
 const CODE_REGEX = /^CN\/\d{4}\/\d{2}$/;
-const MAX_FILE_SIZE = 10 * 1024 * 1024;
-const ALLOWED_FILE_TYPES = ["application/pdf", "image/png", "image/jpeg", "image/jpg", "image/webp"];
+const MAX_FILE_SIZE = 15 * 1024 * 1024;
+const ALLOWED_FILE_TYPES = [
+  "application/pdf",
+  "image/png", "image/jpeg", "image/jpg", "image/webp",
+  "application/msword",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+];
+const ALLOWED_EXTENSIONS = ["pdf", "png", "jpg", "jpeg", "webp", "doc", "docx"];
+const FILE_ACCEPT = ".pdf,.png,.jpg,.jpeg,.webp,.doc,.docx,application/pdf,image/*,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document";
 
 const emptyTest = (): TestEntry => ({
   test_name: "",
