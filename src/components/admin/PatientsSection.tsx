@@ -303,8 +303,8 @@ const PatientsSection = () => {
               </div>
             ))}</div>}
             <label className="cursor-pointer">
-              <input type="file" accept=".pdf,.png,.jpg,.jpeg,.webp" multiple onChange={(e) => handleFileChange(idx, e, fileSetter)} className="hidden" />
-              <div className="flex items-center gap-2 h-9 px-3 rounded-md border border-dashed border-input text-sm text-muted-foreground hover:border-primary transition-colors"><Upload className="w-4 h-4" /> Upload Files</div>
+              <input type="file" accept={FILE_ACCEPT} multiple onChange={(e) => handleFileChange(idx, e, fileSetter)} className="hidden" />
+              <div className="flex items-center gap-2 h-10 px-4 rounded-md border border-dashed border-input text-sm text-muted-foreground hover:border-primary transition-colors"><Upload className="w-4 h-4" /> Upload Result File (PDF, Image, or Word)</div>
             </label>
           </div>
         </div>
