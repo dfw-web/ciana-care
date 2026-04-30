@@ -409,8 +409,8 @@ const PatientsSection = () => {
                         </div>
                       ))}
                       <label className="cursor-pointer">
-                        <input type="file" accept=".pdf,.png,.jpg,.jpeg,.webp" className="hidden" onChange={(e) => { const file = e.target.files?.[0]; if (file) handleAddFileToTest(t.id, vp.id, vp.code, file); e.target.value = ""; }} />
-                        <div className="flex items-center gap-2 h-8 px-3 rounded-md border border-dashed border-input text-xs text-muted-foreground hover:border-primary transition-colors w-fit"><Upload className="w-3.5 h-3.5" /> Add File</div>
+                        <input type="file" accept={FILE_ACCEPT} className="hidden" onChange={(e) => { const file = e.target.files?.[0]; if (file) handleAddFileToTest(t.id, vp.id, vp.code, file); e.target.value = ""; }} />
+                        <div className="flex items-center gap-2 h-9 px-3 rounded-md border border-dashed border-input text-xs text-muted-foreground hover:border-primary transition-colors w-fit"><Upload className="w-3.5 h-3.5" /> Add File (PDF, Image, or Word)</div>
                       </label>
                     </div>
                   </div>
