@@ -34,8 +34,15 @@ type PatientTest = {
 };
 
 const CODE_REGEX = /^CN\/\d{4}\/\d{2}$/;
-const MAX_FILE_SIZE = 10 * 1024 * 1024;
-const ALLOWED_FILE_TYPES = ["application/pdf", "image/png", "image/jpeg", "image/jpg", "image/webp"];
+const MAX_FILE_SIZE = 15 * 1024 * 1024;
+const ALLOWED_FILE_TYPES = [
+  "application/pdf",
+  "image/png", "image/jpeg", "image/jpg", "image/webp",
+  "application/msword",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+];
+const ALLOWED_EXTENSIONS = ["pdf", "png", "jpg", "jpeg", "webp", "doc", "docx"];
+const FILE_ACCEPT = ".pdf,.png,.jpg,.jpeg,.webp,.doc,.docx,application/pdf,image/*,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document";
 
 const emptyTest = (): TestEntry => ({
   test_name: "",
@@ -100,8 +107,10 @@ const PatientsSection = () => {
   };
 
   const validateFile = (file: File): string | null => {
-    if (!ALLOWED_FILE_TYPES.includes(file.type)) return "Only PDF and image files allowed";
-    if (file.size > MAX_FILE_SIZE) return "File must be under 10MB";
+    const ext = file.name.split(".").pop()?.toLowerCase() || "";
+    const typeOk = ALLOWED_FILE_TYPES.includes(file.type) || ALLOWED_EXTENSIONS.includes(ext);
+    if (!typeOk) return "Only PDF, image, or Word files are allowed";
+    if (file.size > MAX_FILE_SIZE) return "File must be under 15MB";
     return null;
   };
 
@@ -294,8 +303,8 @@ const PatientsSection = () => {
               </div>
             ))}</div>}
             <label className="cursor-pointer">
-              <input type="file" accept=".pdf,.png,.jpg,.jpeg,.webp" multiple onChange={(e) => handleFileChange(idx, e, fileSetter)} className="hidden" />
-              <div className="flex items-center gap-2 h-9 px-3 rounded-md border border-dashed border-input text-sm text-muted-foreground hover:border-primary transition-colors"><Upload className="w-4 h-4" /> Upload Files</div>
+              <input type="file" accept={FILE_ACCEPT} multiple onChange={(e) => handleFileChange(idx, e, fileSetter)} className="hidden" />
+              <div className="flex items-center gap-2 h-10 px-4 rounded-md border border-dashed border-input text-sm text-muted-foreground hover:border-primary transition-colors"><Upload className="w-4 h-4" /> Upload Result File (PDF, Image, or Word)</div>
             </label>
           </div>
         </div>
@@ -390,18 +399,29 @@ const PatientsSection = () => {
                     )}
                     <div className="space-y-1.5">
                       <p className="text-xs font-medium text-muted-foreground">Files ({filePaths.length})</p>
-                      {filePaths.map((fp, fi) => (
-                        <div key={fi} className="flex items-center gap-2 text-sm bg-muted/30 rounded-lg px-3 py-2">
-                          <FileText className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
-                          <span className="truncate flex-1 text-xs">{fp.split("/").pop()}</span>
-                          <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => { setPreviewUrl(getFileUrl(fp)); setPreviewIsImage(isImageFile(fp)); }}><Eye className="w-3 h-3" /></Button>
-                          <a href={getFileUrl(fp)} target="_blank" rel="noopener noreferrer"><Button variant="ghost" size="icon" className="h-6 w-6"><Download className="w-3 h-3" /></Button></a>
-                          <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive" onClick={() => handleDeleteFile(t.id, vp.id, fp)}><Trash2 className="w-3 h-3" /></Button>
-                        </div>
-                      ))}
+                      {filePaths.map((fp, fi) => {
+                        const ext = fp.split(".").pop()?.toLowerCase() || "";
+                        const isWord = ext === "doc" || ext === "docx";
+                        const canPreview = !isWord;
+                        return (
+                          <div key={fi} className="flex items-center gap-2 text-sm bg-muted/30 rounded-lg px-3 py-2">
+                            <FileText className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                            <span className="truncate flex-1 text-xs">{fp.split("/").pop()}</span>
+                            {canPreview && (
+                              <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => { setPreviewUrl(getFileUrl(fp)); setPreviewIsImage(isImageFile(fp)); }}>
+                                <Eye className="w-3 h-3 mr-1" /> View
+                              </Button>
+                            )}
+                            <a href={getFileUrl(fp)} target="_blank" rel="noopener noreferrer" download>
+                              <Button variant="ghost" size="sm" className="h-7 text-xs"><Download className="w-3 h-3 mr-1" /> Download</Button>
+                            </a>
+                            <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => handleDeleteFile(t.id, vp.id, fp)}><Trash2 className="w-3 h-3" /></Button>
+                          </div>
+                        );
+                      })}
                       <label className="cursor-pointer">
-                        <input type="file" accept=".pdf,.png,.jpg,.jpeg,.webp" className="hidden" onChange={(e) => { const file = e.target.files?.[0]; if (file) handleAddFileToTest(t.id, vp.id, vp.code, file); e.target.value = ""; }} />
-                        <div className="flex items-center gap-2 h-8 px-3 rounded-md border border-dashed border-input text-xs text-muted-foreground hover:border-primary transition-colors w-fit"><Upload className="w-3.5 h-3.5" /> Add File</div>
+                        <input type="file" accept={FILE_ACCEPT} className="hidden" onChange={(e) => { const file = e.target.files?.[0]; if (file) handleAddFileToTest(t.id, vp.id, vp.code, file); e.target.value = ""; }} />
+                        <div className="flex items-center gap-2 h-9 px-3 rounded-md border border-dashed border-input text-xs text-muted-foreground hover:border-primary transition-colors w-fit"><Upload className="w-3.5 h-3.5" /> Add File (PDF, Image, or Word)</div>
                       </label>
                     </div>
                   </div>
