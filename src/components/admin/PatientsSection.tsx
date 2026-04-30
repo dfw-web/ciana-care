@@ -107,8 +107,10 @@ const PatientsSection = () => {
   };
 
   const validateFile = (file: File): string | null => {
-    if (!ALLOWED_FILE_TYPES.includes(file.type)) return "Only PDF and image files allowed";
-    if (file.size > MAX_FILE_SIZE) return "File must be under 10MB";
+    const ext = file.name.split(".").pop()?.toLowerCase() || "";
+    const typeOk = ALLOWED_FILE_TYPES.includes(file.type) || ALLOWED_EXTENSIONS.includes(ext);
+    if (!typeOk) return "Only PDF, image, or Word files are allowed";
+    if (file.size > MAX_FILE_SIZE) return "File must be under 15MB";
     return null;
   };
 
