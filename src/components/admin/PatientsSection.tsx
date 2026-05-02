@@ -5,9 +5,11 @@ import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import {
   LogOut, Plus, Loader2, Trash2, Upload, FileText, X, Search,
-  ChevronDown, ChevronUp, Check, Eye, Download, Pencil, ExternalLink
+  ChevronDown, ChevronUp, Check, Eye, Download, Pencil, ExternalLink,
+  KeyRound, Copy, MessageCircle
 } from "lucide-react";
 import { toast } from "sonner";
+import { generateResultCode } from "@/lib/resultCodes";
 
 type Patient = {
   id: string;
