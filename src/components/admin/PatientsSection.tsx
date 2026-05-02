@@ -88,6 +88,12 @@ const PatientsSection = () => {
 
   const [showAddForm, setShowAddForm] = useState(false);
 
+  // Result access codes shown after generation
+  const [codesModal, setCodesModal] = useState<{
+    patient: { name: string; email: string | null };
+    codes: { test_name: string; code: string; link: string }[];
+  } | null>(null);
+  const [generatingFor, setGeneratingFor] = useState<string | null>(null);
   useEffect(() => { fetchPatients(); }, []);
 
   const fetchPatients = async () => {
