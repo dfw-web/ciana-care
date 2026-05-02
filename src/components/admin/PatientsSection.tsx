@@ -605,6 +605,16 @@ const PatientsSection = () => {
                   </div>
                   <div className="flex items-center gap-1 shrink-0">
                     <Button variant="outline" size="sm" onClick={(e) => { e.stopPropagation(); setViewingPatient(p); fetchTests(p.id); }} className="text-xs hidden sm:flex"><ExternalLink className="w-3.5 h-3.5 mr-1" /> View Records</Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={(e) => { e.stopPropagation(); handleGenerateCodes(p); }}
+                      title="Generate result access codes"
+                      disabled={generatingFor === p.id}
+                      className="text-muted-foreground hover:text-primary"
+                    >
+                      {generatingFor === p.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <KeyRound className="w-4 h-4" />}
+                    </Button>
                     <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); handleToggleApproval(p); }} title={p.approved ? "Revoke" : "Approve"} className="text-muted-foreground hover:text-primary"><Check className="w-4 h-4" /></Button>
                     <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); handleDeletePatient(p); }} className="text-muted-foreground hover:text-destructive"><Trash2 className="w-4 h-4" /></Button>
                     {expandedPatient === p.id ? <ChevronUp className="w-4 h-4 text-muted-foreground" /> : <ChevronDown className="w-4 h-4 text-muted-foreground" />}
