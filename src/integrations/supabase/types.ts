@@ -169,9 +169,34 @@ export type Database = {
           },
         ]
       }
+      patient_unlocks: {
+        Row: {
+          auth_user_id: string
+          id: string
+          patient_id: string
+          patient_test_id: string
+          unlocked_at: string
+        }
+        Insert: {
+          auth_user_id: string
+          id?: string
+          patient_id: string
+          patient_test_id: string
+          unlocked_at?: string
+        }
+        Update: {
+          auth_user_id?: string
+          id?: string
+          patient_id?: string
+          patient_test_id?: string
+          unlocked_at?: string
+        }
+        Relationships: []
+      }
       patients: {
         Row: {
           approved: boolean
+          auth_user_id: string | null
           code: string
           created_at: string
           email: string | null
@@ -180,6 +205,7 @@ export type Database = {
         }
         Insert: {
           approved?: boolean
+          auth_user_id?: string | null
           code: string
           created_at?: string
           email?: string | null
@@ -188,11 +214,42 @@ export type Database = {
         }
         Update: {
           approved?: boolean
+          auth_user_id?: string | null
           code?: string
           created_at?: string
           email?: string | null
           id?: string
           patient_name?: string
+        }
+        Relationships: []
+      }
+      result_access_codes: {
+        Row: {
+          code: string
+          created_at: string
+          id: string
+          patient_id: string
+          patient_test_id: string
+          used_at: string | null
+          used_by_auth_user_id: string | null
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          id?: string
+          patient_id: string
+          patient_test_id: string
+          used_at?: string | null
+          used_by_auth_user_id?: string | null
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          id?: string
+          patient_id?: string
+          patient_test_id?: string
+          used_at?: string | null
+          used_by_auth_user_id?: string | null
         }
         Relationships: []
       }
