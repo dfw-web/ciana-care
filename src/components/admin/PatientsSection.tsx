@@ -309,6 +309,7 @@ const PatientsSection = () => {
     window.open(url, "_blank");
   };
 
+  const handleUpdatePatient = async (p: Patient) => {
     const code = sanitizeInput(editCode).toUpperCase();
     const name = sanitizeInput(editName, 100);
     const email = sanitizeInput(editEmail, 255).toLowerCase();
