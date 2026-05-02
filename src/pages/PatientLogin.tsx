@@ -1,47 +1,39 @@
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { useNavigate, Link } from "react-router-dom";
 import { motion } from "framer-motion";
-import { ArrowLeft, Mail, Loader2 } from "lucide-react";
-import { Link } from "react-router-dom";
+import { ArrowLeft, Loader2, Mail } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
 import cianaLogo from "@/assets/ciana-logo.png";
 
 const PatientLogin = () => {
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => {
+      if (data.session) navigate("/patient/dashboard", { replace: true });
+    });
+  }, [navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const trimmed = email.trim().toLowerCase();
-    if (!trimmed) return;
+    const em = email.trim().toLowerCase();
+    if (!em || !password) return;
 
     setLoading(true);
-    setError("");
-
-    const { data, error: dbError } = await supabase
-      .from("patients")
-      .select("id, patient_name, code, email, approved")
-      .ilike("email", trimmed)
-      .maybeSingle();
-
+    const { error } = await supabase.auth.signInWithPassword({ email: em, password });
     setLoading(false);
 
-    if (dbError) {
-      setError("Something went wrong. Please try again.");
+    if (error) {
+      toast.error("Invalid email or password");
       return;
     }
-    if (!data) {
-      setError("No patient record found for this email address.");
-      return;
-    }
-
-    // Store patient info in sessionStorage and navigate
-    sessionStorage.setItem("patient_session", JSON.stringify(data));
-    navigate("/patient/dashboard");
+    navigate("/patient/dashboard", { replace: true });
   };
 
   return (
@@ -63,53 +55,42 @@ const PatientLogin = () => {
         <motion.div
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
           className="max-w-md mx-auto"
         >
           <div className="text-center mb-8">
-            <img src={cianaLogo} alt="Ciana Diagnostics" className="h-16 w-auto mx-auto mb-4" />
+            <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4">
+              <Mail className="w-6 h-6 text-primary" />
+            </div>
             <h1 className="text-2xl md:text-3xl font-semibold text-foreground leading-tight">Patient Portal</h1>
-            <p className="text-muted-foreground mt-2">Enter your email address to access your test results.</p>
+            <p className="text-muted-foreground mt-2">Log in to view your unlocked results.</p>
           </div>
 
           <form onSubmit={handleSubmit} className="bg-background rounded-xl border border-border shadow-sm p-6 space-y-4">
             <div>
-              <label htmlFor="email" className="text-sm font-medium text-foreground mb-1.5 block">Email Address</label>
-              <Input
-                id="email"
-                type="email"
-                placeholder="you@example.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="text-base"
-              />
+              <label className="text-sm font-medium text-foreground mb-1.5 block">Email</label>
+              <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="email" />
             </div>
-            <Button type="submit" className="w-full" disabled={loading || !email.trim()}>
-              {loading ? (
-                <span className="flex items-center gap-2">
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  Checking...
-                </span>
-              ) : (
-                "View My Results"
-              )}
+            <div>
+              <label className="text-sm font-medium text-foreground mb-1.5 block">Password</label>
+              <Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="current-password" />
+            </div>
+            <Button type="submit" className="w-full" disabled={loading || !email.trim() || !password}>
+              {loading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+              Log In
             </Button>
           </form>
 
-          {error && (
-            <motion.div
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="mt-6 bg-destructive/10 border border-destructive/20 rounded-xl p-5 text-sm text-destructive font-medium"
-            >
-              {error}
-            </motion.div>
-          )}
-
-          <div className="text-center mt-6">
-            <Link to="/check-result" className="text-sm text-muted-foreground hover:text-foreground transition-colors underline underline-offset-4">
-              Have a code instead? Check result by code
-            </Link>
+          <div className="text-center mt-6 space-y-2">
+            <p className="text-sm text-muted-foreground">
+              Got a result code?{" "}
+              <Link to="/results" className="text-primary hover:underline">Use it here</Link>
+            </p>
+            <p className="text-xs text-muted-foreground">
+              Or{" "}
+              <Link to="/check-result" className="hover:text-foreground underline underline-offset-4">
+                quick lookup with your CN code
+              </Link>
+            </p>
           </div>
         </motion.div>
       </main>
