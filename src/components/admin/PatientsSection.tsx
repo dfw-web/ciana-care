@@ -5,9 +5,11 @@ import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import {
   LogOut, Plus, Loader2, Trash2, Upload, FileText, X, Search,
-  ChevronDown, ChevronUp, Check, Eye, Download, Pencil, ExternalLink
+  ChevronDown, ChevronUp, Check, Eye, Download, Pencil, ExternalLink,
+  KeyRound, Copy, MessageCircle
 } from "lucide-react";
 import { toast } from "sonner";
+import { generateResultCode } from "@/lib/resultCodes";
 
 type Patient = {
   id: string;
@@ -86,6 +88,12 @@ const PatientsSection = () => {
 
   const [showAddForm, setShowAddForm] = useState(false);
 
+  // Result access codes shown after generation
+  const [codesModal, setCodesModal] = useState<{
+    patient: { name: string; email: string | null };
+    codes: { test_name: string; code: string; link: string }[];
+  } | null>(null);
+  const [generatingFor, setGeneratingFor] = useState<string | null>(null);
   useEffect(() => { fetchPatients(); }, []);
 
   const fetchPatients = async () => {
@@ -202,6 +210,103 @@ const PatientsSection = () => {
     const { error } = await supabase.from("patients").update({ approved: newVal }).eq("id", p.id);
     if (error) toast.error("Failed");
     else { setPatients((prev) => prev.map((x) => x.id === p.id ? { ...x, approved: newVal } : x)); toast.success(newVal ? "Approved" : "Unapproved"); }
+  };
+
+  // Generate result-access codes for every test belonging to this patient.
+  // Skips tests that already have a code (one code per test, reusable).
+  const handleGenerateCodes = async (p: Patient) => {
+    setGeneratingFor(p.id);
+    try {
+      // Make sure tests are loaded
+      let tests = patientTests[p.id];
+      if (!tests) {
+        const { data } = await supabase
+          .from("patient_tests")
+          .select("*")
+          .eq("patient_id", p.id)
+          .order("test_date", { ascending: false });
+        tests = data || [];
+        setPatientTests((prev) => ({ ...prev, [p.id]: tests! }));
+      }
+      if (tests.length === 0) {
+        toast.error("No tests on this patient yet");
+        return;
+      }
+
+      // Find existing codes for these tests
+      const testIds = tests.map((t) => t.id);
+      const { data: existing } = await supabase
+        .from("result_access_codes")
+        .select("patient_test_id, code")
+        .in("patient_test_id", testIds);
+      const existingByTest = new Map((existing || []).map((c) => [c.patient_test_id, c.code]));
+
+      const origin = window.location.origin;
+      const generated: { test_name: string; code: string; link: string }[] = [];
+
+      for (const t of tests) {
+        let code = existingByTest.get(t.id);
+        if (!code) {
+          // Generate a unique code (retry on rare collision)
+          for (let i = 0; i < 5; i++) {
+            const candidate = generateResultCode(8);
+            const { error } = await supabase
+              .from("result_access_codes")
+              .insert({ patient_test_id: t.id, patient_id: p.id, code: candidate });
+            if (!error) {
+              code = candidate;
+              break;
+            }
+            if (!error || !String(error.message).includes("duplicate")) {
+              if (i === 4) {
+                toast.error(`Failed to create code for ${t.test_name}`);
+                break;
+              }
+            }
+          }
+        }
+        if (code) {
+          generated.push({
+            test_name: t.test_name,
+            code,
+            link: `${origin}/results?code=${encodeURIComponent(code)}`,
+          });
+          // Fire-and-forget email (stub for now)
+          if (p.email) {
+            supabase.functions
+              .invoke("send-result-email", {
+                body: {
+                  recipient_email: p.email,
+                  recipient_name: p.patient_name,
+                  code,
+                  test_name: t.test_name,
+                },
+              })
+              .catch(() => {});
+          }
+        }
+      }
+
+      setCodesModal({
+        patient: { name: p.patient_name, email: p.email },
+        codes: generated,
+      });
+    } finally {
+      setGeneratingFor(null);
+    }
+  };
+
+  const copy = (text: string) => {
+    navigator.clipboard.writeText(text);
+    toast.success("Copied");
+  };
+
+  const sendWhatsApp = (phoneless: boolean, msg: string) => {
+    // No patient phone in DB → open WhatsApp without target so user picks
+    const url = phoneless
+      ? `https://wa.me/?text=${encodeURIComponent(msg)}`
+      : `https://wa.me/?text=${encodeURIComponent(msg)}`;
+    window.open(url, "_blank");
   };
 
   const handleUpdatePatient = async (p: Patient) => {
@@ -501,6 +606,16 @@ const PatientsSection = () => {
                   </div>
                   <div className="flex items-center gap-1 shrink-0">
                     <Button variant="outline" size="sm" onClick={(e) => { e.stopPropagation(); setViewingPatient(p); fetchTests(p.id); }} className="text-xs hidden sm:flex"><ExternalLink className="w-3.5 h-3.5 mr-1" /> View Records</Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={(e) => { e.stopPropagation(); handleGenerateCodes(p); }}
+                      title="Generate result access codes"
+                      disabled={generatingFor === p.id}
+                      className="text-muted-foreground hover:text-primary"
+                    >
+                      {generatingFor === p.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <KeyRound className="w-4 h-4" />}
+                    </Button>
                     <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); handleToggleApproval(p); }} title={p.approved ? "Revoke" : "Approve"} className="text-muted-foreground hover:text-primary"><Check className="w-4 h-4" /></Button>
                     <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); handleDeletePatient(p); }} className="text-muted-foreground hover:text-destructive"><Trash2 className="w-4 h-4" /></Button>
                     {expandedPatient === p.id ? <ChevronUp className="w-4 h-4 text-muted-foreground" /> : <ChevronDown className="w-4 h-4 text-muted-foreground" />}
@@ -555,6 +670,73 @@ const PatientsSection = () => {
           </div>
         )}
       </section>
+
+      {/* Result codes modal */}
+      {codesModal && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => setCodesModal(null)}>
+          <div className="bg-background rounded-xl border border-border shadow-lg max-w-2xl w-full max-h-[85vh] overflow-auto" onClick={(e) => e.stopPropagation()}>
+            <div className="p-5 border-b border-border flex items-center justify-between">
+              <div>
+                <h3 className="font-semibold text-foreground">Result Access Codes</h3>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  {codesModal.patient.name}
+                  {codesModal.patient.email ? ` — ${codesModal.patient.email}` : " — no email on file"}
+                </p>
+              </div>
+              <Button variant="ghost" size="sm" onClick={() => setCodesModal(null)}><X className="w-4 h-4" /></Button>
+            </div>
+            <div className="p-5 space-y-3">
+              {!codesModal.patient.email && (
+                <div className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-md p-3">
+                  This patient has no email saved. Codes were created but no email could be sent — share the link manually.
+                </div>
+              )}
+              {codesModal.codes.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No codes generated.</p>
+              ) : (
+                codesModal.codes.map((c, i) => {
+                  const msg = `Hi ${codesModal.patient.name}, your "${c.test_name}" result is ready.\n\nCode: ${c.code}\nView: ${c.link}\n\n— Ciana Diagnostics`;
+                  return (
+                    <div key={i} className="border border-border rounded-lg p-4 space-y-2 bg-muted/20">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <p className="text-sm font-semibold text-foreground truncate">{c.test_name}</p>
+                          <p className="font-mono text-base text-primary mt-1 tracking-wider">{c.code}</p>
+                        </div>
+                        <Button variant="outline" size="sm" onClick={() => copy(c.code)}>
+                          <Copy className="w-3.5 h-3.5 mr-1" /> Code
+                        </Button>
+                      </div>
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground bg-background border border-border rounded-md px-2 py-1.5 truncate">
+                        <span className="truncate flex-1">{c.link}</span>
+                        <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => copy(c.link)}>
+                          <Copy className="w-3 h-3 mr-1" /> Link
+                        </Button>
+                      </div>
+                      <div className="flex gap-2 pt-1">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="text-xs"
+                          onClick={() => window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, "_blank")}
+                        >
+                          <MessageCircle className="w-3.5 h-3.5 mr-1" /> Send via WhatsApp
+                        </Button>
+                        <Button variant="outline" size="sm" className="text-xs" onClick={() => copy(msg)}>
+                          <Copy className="w-3.5 h-3.5 mr-1" /> Copy full message
+                        </Button>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+              <p className="text-xs text-muted-foreground pt-2">
+                Email sending is set up but not active yet (a verified domain is required). Codes were created and the email function was called as a stub. Share via WhatsApp/SMS for now.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
