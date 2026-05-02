@@ -669,6 +669,73 @@ const PatientsSection = () => {
           </div>
         )}
       </section>
+
+      {/* Result codes modal */}
+      {codesModal && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => setCodesModal(null)}>
+          <div className="bg-background rounded-xl border border-border shadow-lg max-w-2xl w-full max-h-[85vh] overflow-auto" onClick={(e) => e.stopPropagation()}>
+            <div className="p-5 border-b border-border flex items-center justify-between">
+              <div>
+                <h3 className="font-semibold text-foreground">Result Access Codes</h3>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  {codesModal.patient.name}
+                  {codesModal.patient.email ? ` — ${codesModal.patient.email}` : " — no email on file"}
+                </p>
+              </div>
+              <Button variant="ghost" size="sm" onClick={() => setCodesModal(null)}><X className="w-4 h-4" /></Button>
+            </div>
+            <div className="p-5 space-y-3">
+              {!codesModal.patient.email && (
+                <div className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-md p-3">
+                  This patient has no email saved. Codes were created but no email could be sent — share the link manually.
+                </div>
+              )}
+              {codesModal.codes.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No codes generated.</p>
+              ) : (
+                codesModal.codes.map((c, i) => {
+                  const msg = `Hi ${codesModal.patient.name}, your "${c.test_name}" result is ready.\n\nCode: ${c.code}\nView: ${c.link}\n\n— Ciana Diagnostics`;
+                  return (
+                    <div key={i} className="border border-border rounded-lg p-4 space-y-2 bg-muted/20">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <p className="text-sm font-semibold text-foreground truncate">{c.test_name}</p>
+                          <p className="font-mono text-base text-primary mt-1 tracking-wider">{c.code}</p>
+                        </div>
+                        <Button variant="outline" size="sm" onClick={() => copy(c.code)}>
+                          <Copy className="w-3.5 h-3.5 mr-1" /> Code
+                        </Button>
+                      </div>
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground bg-background border border-border rounded-md px-2 py-1.5 truncate">
+                        <span className="truncate flex-1">{c.link}</span>
+                        <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => copy(c.link)}>
+                          <Copy className="w-3 h-3 mr-1" /> Link
+                        </Button>
+                      </div>
+                      <div className="flex gap-2 pt-1">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="text-xs"
+                          onClick={() => window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, "_blank")}
+                        >
+                          <MessageCircle className="w-3.5 h-3.5 mr-1" /> Send via WhatsApp
+                        </Button>
+                        <Button variant="outline" size="sm" className="text-xs" onClick={() => copy(msg)}>
+                          <Copy className="w-3.5 h-3.5 mr-1" /> Copy full message
+                        </Button>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+              <p className="text-xs text-muted-foreground pt-2">
+                Email sending is set up but not active yet (a verified domain is required). Codes were created and the email function was called as a stub. Share via WhatsApp/SMS for now.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
