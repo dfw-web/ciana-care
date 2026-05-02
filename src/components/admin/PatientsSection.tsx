@@ -212,7 +212,103 @@ const PatientsSection = () => {
     else { setPatients((prev) => prev.map((x) => x.id === p.id ? { ...x, approved: newVal } : x)); toast.success(newVal ? "Approved" : "Unapproved"); }
   };
 
-  const handleUpdatePatient = async (p: Patient) => {
+  // Generate result-access codes for every test belonging to this patient.
+  // Skips tests that already have a code (one code per test, reusable).
+  const handleGenerateCodes = async (p: Patient) => {
+    setGeneratingFor(p.id);
+    try {
+      // Make sure tests are loaded
+      let tests = patientTests[p.id];
+      if (!tests) {
+        const { data } = await supabase
+          .from("patient_tests")
+          .select("*")
+          .eq("patient_id", p.id)
+          .order("test_date", { ascending: false });
+        tests = data || [];
+        setPatientTests((prev) => ({ ...prev, [p.id]: tests! }));
+      }
+      if (tests.length === 0) {
+        toast.error("No tests on this patient yet");
+        return;
+      }
+
+      // Find existing codes for these tests
+      const testIds = tests.map((t) => t.id);
+      const { data: existing } = await supabase
+        .from("result_access_codes")
+        .select("patient_test_id, code")
+        .in("patient_test_id", testIds);
+      const existingByTest = new Map((existing || []).map((c) => [c.patient_test_id, c.code]));
+
+      const origin = window.location.origin;
+      const generated: { test_name: string; code: string; link: string }[] = [];
+
+      for (const t of tests) {
+        let code = existingByTest.get(t.id);
+        if (!code) {
+          // Generate a unique code (retry on rare collision)
+          for (let i = 0; i < 5; i++) {
+            const candidate = generateResultCode(8);
+            const { error } = await supabase
+              .from("result_access_codes")
+              .insert({ patient_test_id: t.id, patient_id: p.id, code: candidate });
+            if (!error) {
+              code = candidate;
+              break;
+            }
+            if (!error || !String(error.message).includes("duplicate")) {
+              if (i === 4) {
+                toast.error(`Failed to create code for ${t.test_name}`);
+                break;
+              }
+            }
+          }
+        }
+        if (code) {
+          generated.push({
+            test_name: t.test_name,
+            code,
+            link: `${origin}/results?code=${encodeURIComponent(code)}`,
+          });
+          // Fire-and-forget email (stub for now)
+          if (p.email) {
+            supabase.functions
+              .invoke("send-result-email", {
+                body: {
+                  recipient_email: p.email,
+                  recipient_name: p.patient_name,
+                  code,
+                  test_name: t.test_name,
+                },
+              })
+              .catch(() => {});
+          }
+        }
+      }
+
+      setCodesModal({
+        patient: { name: p.patient_name, email: p.email },
+        codes: generated,
+      });
+    } finally {
+      setGeneratingFor(null);
+    }
+  };
+
+  const copy = (text: string) => {
+    navigator.clipboard.writeText(text);
+    toast.success("Copied");
+  };
+
+  const sendWhatsApp = (phoneless: boolean, msg: string) => {
+    // No patient phone in DB → open WhatsApp without target so user picks
+    const url = phoneless
+      ? `https://wa.me/?text=${encodeURIComponent(msg)}`
+      : `https://wa.me/?text=${encodeURIComponent(msg)}`;
+    window.open(url, "_blank");
+  };
+
     const code = sanitizeInput(editCode).toUpperCase();
     const name = sanitizeInput(editName, 100);
     const email = sanitizeInput(editEmail, 255).toLowerCase();
