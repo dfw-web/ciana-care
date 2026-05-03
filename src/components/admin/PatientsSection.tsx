@@ -208,8 +208,66 @@ const PatientsSection = () => {
   const handleToggleApproval = async (p: Patient) => {
     const newVal = !p.approved;
     const { error } = await supabase.from("patients").update({ approved: newVal }).eq("id", p.id);
-    if (error) toast.error("Failed");
-    else { setPatients((prev) => prev.map((x) => x.id === p.id ? { ...x, approved: newVal } : x)); toast.success(newVal ? "Approved" : "Unapproved"); }
+    if (error) { toast.error("Failed"); return; }
+    setPatients((prev) => prev.map((x) => x.id === p.id ? { ...x, approved: newVal } : x));
+    toast.success(newVal ? "Approved" : "Unapproved");
+
+    // On approval: ensure each test has a result code, then email patient.
+    if (newVal) {
+      try {
+        let tests = patientTests[p.id];
+        if (!tests) {
+          const { data } = await supabase
+            .from("patient_tests")
+            .select("*")
+            .eq("patient_id", p.id)
+            .order("test_date", { ascending: false });
+          tests = data || [];
+          setPatientTests((prev) => ({ ...prev, [p.id]: tests! }));
+        }
+        if (!tests.length) return;
+
+        const testIds = tests.map((t) => t.id);
+        const { data: existing } = await supabase
+          .from("result_access_codes")
+          .select("patient_test_id, code")
+          .in("patient_test_id", testIds);
+        const existingByTest = new Map((existing || []).map((c) => [c.patient_test_id, c.code]));
+
+        const generated: { test_name: string; code: string }[] = [];
+        for (const t of tests) {
+          let code = existingByTest.get(t.id);
+          if (!code) {
+            for (let i = 0; i < 5; i++) {
+              const candidate = generateResultCode(8);
+              const { error: insErr } = await supabase
+                .from("result_access_codes")
+                .insert({ patient_test_id: t.id, patient_id: p.id, code: candidate });
+              if (!insErr) { code = candidate; break; }
+            }
+          }
+          if (code) generated.push({ test_name: t.test_name, code });
+        }
+
+        // Send one email per generated code (one code unlocks one test).
+        if (p.email && generated.length) {
+          for (const g of generated) {
+            supabase.functions.invoke("send-result-email", {
+              body: {
+                patient_email: p.email,
+                patient_name: p.patient_name,
+                test_names: [g.test_name],
+                result_code: g.code,
+              },
+            }).catch((err) => console.error("Email send failed", err));
+          }
+          toast.success(`Result email${generated.length > 1 ? "s" : ""} sent`);
+        }
+      } catch (err) {
+        // Never break approval flow on email failure
+        console.error("Approval auto-email failed", err);
+      }
+    }
   };
 
   // Generate result-access codes for every test belonging to this patient.
